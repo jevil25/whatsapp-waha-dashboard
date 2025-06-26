@@ -30,6 +30,29 @@ export const adminRouter = createTRPCRouter({
       return pendingUsers;
     }),
 
+  getApprovedUsers: adminProcedure
+    .query(async () => {
+      const approvedUsers = await db.user.findMany({
+        where: {
+          role: {
+            in: ['USER', 'ADMIN']
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      return approvedUsers;
+    }),
+
   approveUser: adminProcedure
     .input(z.object({
       userId: z.string(),
@@ -45,6 +68,69 @@ export const adminRouter = createTRPCRouter({
       });
 
       return updatedUser;
+    }),
+
+  revokeAccess: adminProcedure
+    .input(z.object({
+      userId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const user = await db.user.findUnique({
+        where: { id: input.userId },
+        select: { role: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found',
+        });
+      }
+
+      if (user.role === 'ADMIN') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: "Cannot revoke admin's access",
+        });
+      }
+
+      const updatedUser = await db.user.update({
+        where: { id: input.userId },
+        data: { role: 'GUEST' },
+      });
+
+      return updatedUser;
+    }),
+
+  deleteUser: adminProcedure
+    .input(z.object({
+      userId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const user = await db.user.findUnique({
+        where: { id: input.userId },
+        select: { role: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found',
+        });
+      }
+
+      if (user.role === 'ADMIN') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Cannot delete an admin user',
+        });
+      }
+
+      await db.user.delete({
+        where: { id: input.userId },
+      });
+
+      return { success: true };
     }),
 
   addNewUser: adminProcedure
@@ -90,5 +176,18 @@ export const adminRouter = createTRPCRouter({
         });
 
       return newUser;
+    }),
+
+  makeAdmin: adminProcedure
+    .input(z.object({
+      userId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const updatedUser = await db.user.update({
+        where: { id: input.userId },
+        data: { role: 'ADMIN' },
+      });
+
+      return updatedUser;
     }),
 });
