@@ -11,4 +11,20 @@ export const auth = betterAuth({
     database: prismaAdapter(prisma, {
         provider: "mongodb",
     }),
+    user: {
+        additionalFields: {
+            role: {
+                type: "string",
+                required: false,
+                defaultValue: "GUEST",
+                input: false,
+                output: true,
+                fieldName: "role",
+                references: {
+                    model: "User",
+                    field: "role",
+                },
+            },
+        },
+    }
 });

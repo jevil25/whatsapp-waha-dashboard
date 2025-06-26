@@ -47,7 +47,7 @@ model WhatsAppSession {
   id          String   @id @default(cuid()) @map("_id")
   sessionName String
   phoneNumber String
-  userId      String  
+  userId      String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -59,7 +59,7 @@ model WhatsAppGroup {
   id        String            @id @default(cuid()) @map("_id")
   groupName String
   groupId   String
-  sessionId String            
+  sessionId String
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   session   WhatsAppSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -68,8 +68,8 @@ model WhatsAppGroup {
 
 model MessageCampaign {
   id           String         @id @default(cuid()) @map("_id")
-  sessionId    String        
-  groupId      String        
+  sessionId    String
+  groupId      String
   startDate    DateTime
   endDate      DateTime
   sendTimeUtc  DateTime
@@ -91,7 +91,7 @@ model MessageCampaign {
 
 model Message {
   id                String    @id @default(cuid()) @map("_id")
-  sessionId         String   
+  sessionId         String
   sender            String
   content           String
   scheduledAt       DateTime
@@ -99,7 +99,7 @@ model Message {
   retryCount        Int       @default(0)
   maxRetries        Int       @default(3)
   dynamicFields     Json?
-  MessageCampaignId String    
+  MessageCampaignId String
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   isDeleted         Boolean   @default(false)
