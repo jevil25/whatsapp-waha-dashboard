@@ -60,6 +60,18 @@ export default function Home() {
     },
   });
 
+  const logoutSession = api.user.logoutSession.useMutation({
+    onSuccess: () => {
+      setQrCode(null);
+      setSessionStatus(null);
+      setCurrentSessionName(null);
+      void trpcUtils.user.getWhatsAppSession.invalidate();
+    },
+    onError: (error) => {
+      setError(error.message);
+    },
+  });
+
   const [screenshotKey, setScreenshotKey] = useState(0);
 
   const pollSessionStatus = useCallback(async (sessionName: string) => {
@@ -264,7 +276,18 @@ export default function Home() {
 
                       switch (sessionStatus) {
                         case 'WORKING':
-                          return <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Connected</span>;
+                          return (
+                            <>
+                              <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Connected</span>
+                              <button
+                                onClick={() => logoutSession.mutate({ sessionName: whatsAppSession.sessionName })}
+                                className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded hover:bg-red-200"
+                                disabled={logoutSession.isPending}
+                              >
+                                {logoutSession.isPending ? 'Disconnecting...' : 'Disconnect'}
+                              </button>
+                            </>
+                          );
                         case 'STOPPED':
                         case 'FAILED':
                           return (

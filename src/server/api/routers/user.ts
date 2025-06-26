@@ -222,5 +222,53 @@ export const userRouter = createTRPCRouter({
           cause: error,
         });
       }
+    }),
+
+  logoutSession: userProcedure
+    .input(z.object({ sessionName: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const stopResponse = await fetch(`${WAHA_API_URL}/api/sessions/${input.sessionName}/stop`, {
+          method: 'POST',
+          headers: WAHA_HEADERS,
+        });
+
+        if (!stopResponse.ok) {
+          throw new Error('Failed to stop session');
+        }
+
+        const logoutResponse = await fetch(`${WAHA_API_URL}/api/sessions/${input.sessionName}/logout`, {
+          method: 'POST',
+          headers: WAHA_HEADERS,
+        });
+
+        if (!logoutResponse.ok) {
+          throw new Error('Failed to logout from session');
+        }
+
+        const deleteResponse = await fetch(`${WAHA_API_URL}/api/sessions/${input.sessionName}`, {
+          method: 'DELETE',
+          headers: WAHA_HEADERS,
+        });
+
+        if (!deleteResponse.ok) {
+          throw new Error('Failed to delete session');
+        }
+
+        await db.whatsAppSession.delete({
+          where: {
+            sessionName: input.sessionName,
+            userId: ctx.session.user.id,
+          },
+        });
+
+        return { success: true };
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to logout from session',
+          cause: error,
+        });
+      }
     })
 });
