@@ -190,4 +190,50 @@ export const adminRouter = createTRPCRouter({
 
       return updatedUser;
     }),
+
+  getWhatsAppSessions: adminProcedure
+    .query(async () => {
+      return await db.whatsAppSession.findMany({
+        include: {
+          WhatsAppGroups: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+    }),
+
+  getWhatsAppGroups: adminProcedure
+    .query(async () => {
+      return await db.whatsAppGroup.findMany({
+        include: {
+          campaigns: {
+            where: {
+              isDeleted: false,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+    }),
+
+  getActiveCampaigns: adminProcedure
+    .query(async () => {
+      return await db.messageCampaign.findMany({
+        where: {
+          isDeleted: false,
+          status: {
+            in: ['SCHEDULED', 'IN_PROGRESS'],
+          },
+        },
+        include: {
+          group: true,
+        },
+        orderBy: {
+          startDate: 'asc',
+        },
+      });
+    }),
 });

@@ -38,6 +38,18 @@ export default function AdminDashboard() {
       enabled: !!session?.user && session.user.role === 'ADMIN',
     });
 
+  const { data: whatsAppSessions, isLoading: isWhatsAppSessionsLoading } = api.admin.getWhatsAppSessions.useQuery(undefined, {
+    enabled: !!session?.user && session.user.role === 'ADMIN',
+  });
+
+  const { data: whatsAppGroups, isLoading: isWhatsAppGroupsLoading } = api.admin.getWhatsAppGroups.useQuery(undefined, {
+    enabled: !!session?.user && session.user.role === 'ADMIN',
+  });
+
+  const { data: activeCampaigns, isLoading: isActiveCampaignsLoading } = api.admin.getActiveCampaigns.useQuery(undefined, {
+    enabled: !!session?.user && session.user.role === 'ADMIN',
+  });
+
   const [approvingUsers, setApprovingUsers] = useState<Set<string>>(new Set());
   
   const { mutate: approveUser } = api.admin.approveUser.useMutation({
@@ -195,6 +207,113 @@ export default function AdminDashboard() {
 
       <div className="max-w-6xl mx-auto p-4">
         <div className="space-y-6">
+          {/* WhatsApp Integration Section */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-medium mb-4">WhatsApp Integration</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-[#f0f2f5] p-4 rounded-lg">
+                <h3 className="text-lg font-medium mb-2">Active Sessions</h3>
+                {isWhatsAppSessionsLoading ? (
+                  <div className="animate-pulse space-y-2">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="bg-white p-3 rounded">
+                        <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div className="h-4 bg-gray-100 rounded w-1/2 mb-2"></div>
+                        <div className="h-3 bg-gray-100 rounded w-1/4"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : whatsAppSessions?.length ? (
+                  <div className="space-y-2">
+                    {whatsAppSessions.map((session) => (
+                      <div key={session.id} className="bg-white p-3 rounded">
+                        <p className="font-medium">{session.sessionName}</p>
+                        <p className="text-sm text-gray-500">{session.phoneNumber}</p>
+                        <p className="text-xs text-gray-400">{session.WhatsAppGroups.length} groups</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white p-4 rounded text-center">
+                    <p className="text-sm text-gray-500 mb-2">No active sessions</p>
+                    <p className="text-xs text-gray-400">Add a WhatsApp session to get started</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-[#f0f2f5] p-4 rounded-lg">
+                <h3 className="text-lg font-medium mb-2">Connected Groups</h3>
+                {isWhatsAppGroupsLoading ? (
+                  <div className="animate-pulse space-y-2">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="bg-white p-3 rounded">
+                        <div className="h-5 bg-gray-200 rounded w-2/3 mb-2"></div>
+                        <div className="h-3 bg-gray-100 rounded w-1/3"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : whatsAppGroups?.length ? (
+                  <div className="space-y-2">
+                    {whatsAppGroups.map((group) => (
+                      <div key={group.id} className="bg-white p-3 rounded">
+                        <p className="font-medium">{group.groupName}</p>
+                        <p className="text-xs text-gray-400">{group.campaigns.length} active campaigns</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white p-4 rounded text-center">
+                    <p className="text-sm text-gray-500 mb-2">No connected groups</p>
+                    <p className="text-xs text-gray-400">Connect to a WhatsApp group to begin</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-[#f0f2f5] p-4 rounded-lg">
+                <h3 className="text-lg font-medium mb-2">Active Campaigns</h3>
+                {isActiveCampaignsLoading ? (
+                  <div className="animate-pulse space-y-2">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="bg-white p-3 rounded">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="h-5 bg-gray-200 rounded w-1/2"></div>
+                          <div className="h-4 bg-gray-100 rounded w-16"></div>
+                        </div>
+                        <div className="h-4 bg-gray-100 rounded w-1/3"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : activeCampaigns?.length ? (
+                  <div className="space-y-2">
+                    {activeCampaigns.map((campaign) => (
+                      <div key={campaign.id} className="bg-white p-3 rounded">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium truncate">{campaign.group.groupName}</p>
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            campaign.status === 'IN_PROGRESS' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {campaign.status}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          Starts: {new Date(campaign.startDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white p-4 rounded text-center">
+                    <p className="text-sm text-gray-500 mb-2">No active campaigns</p>
+                    <p className="text-xs text-gray-400">Create a campaign to start messaging</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* User Management Sections - updated to be more compact */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-xl font-medium mb-4">Pending Users</h2>
@@ -312,18 +431,18 @@ export default function AdminDashboard() {
             <h2 className="text-xl font-medium mb-4">Approved Users</h2>
             {(errors.makeAdmin ?? errors.revokeAccess ?? errors.deleteUser) && (
               <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                {errors.makeAdmin && <p className="text-sm text-red-600 mb-2">{errors.makeAdmin}</p>}
-                {errors.revokeAccess && <p className="text-sm text-red-600 mb-2">{errors.revokeAccess}</p>}
+                {errors.makeAdmin && <p className="text-sm text-red-600">{errors.makeAdmin}</p>}
+                {errors.revokeAccess && <p className="text-sm text-red-600">{errors.revokeAccess}</p>}
                 {errors.deleteUser && <p className="text-sm text-red-600">{errors.deleteUser}</p>}
               </div>
             )}
-            <div className="space-y-4">
+            <div className="space-y-2">
               {isApprovedUsersLoading ? (
-                <div className="animate-pulse space-y-4">
+                <div className="animate-pulse space-y-2">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="bg-[#f0f2f5] p-4 rounded-lg">
+                    <div key={i} className="bg-[#f0f2f5] p-3 rounded-lg">
                       <div className="w-2/3">
-                        <div className="h-4 bg-gray-300 rounded w-1/2 mb-2"></div>
+                        <div className="h-4 bg-gray-300 rounded w-1/2 mb-1"></div>
                         <div className="h-3 bg-gray-200 rounded w-3/4"></div>
                       </div>
                     </div>
@@ -331,50 +450,51 @@ export default function AdminDashboard() {
                 </div>
               ) : approvedUsers && approvedUsers.length > 0 ? (
                 approvedUsers.map((user) => (
-                  <div key={user.id} className="bg-[#f0f2f5] p-4 rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="font-medium">{user.name}</p>
-                        <p className="text-sm text-gray-500">{user.email}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {user.role !== 'ADMIN' ? (
-                          <>
-                            <button
-                              onClick={() => {
-                                setMakingAdminUsers(prev => new Set(prev).add(user.id));
-                                makeAdmin({ userId: user.id });
-                              }}
-                              disabled={makingAdminUsers.has(user.id)}
-                              className="text-sm bg-[#008069] text-white px-3 py-1.5 rounded-md hover:bg-[#006d5a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {makingAdminUsers.has(user.id) ? 'Making Admin...' : 'Make Admin'}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setRevokingUsers(prev => new Set(prev).add(user.id));
-                                revokeAccess({ userId: user.id });
-                              }}
-                              disabled={revokingUsers.has(user.id)}
-                              className="text-sm bg-[#ffa500] text-white px-3 py-1.5 rounded-md hover:bg-[#ff8c00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {revokingUsers.has(user.id) ? 'Revoking...' : 'Revoke Access'}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setUserToDelete(user.id);
-                                setDeleteModalOpen(true);
-                              }}
-                              disabled={deletingUsers.has(user.id)}
-                              className="text-sm bg-[#dc3545] text-white px-3 py-1.5 rounded-md hover:bg-[#c82333] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {deletingUsers.has(user.id) ? 'Deleting...' : 'Delete'}
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-sm font-medium text-[#008069]">Admin</span>
+                  <div key={user.id} className="bg-[#f0f2f5] p-3 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <p className="font-medium">{user.name}</p>
+                          <p className="text-sm text-gray-500">{user.email}</p>
+                        </div>
+                        {user.role === 'ADMIN' && (
+                          <span className="text-xs bg-[#008069] text-white px-2 py-0.5 rounded">Admin</span>
                         )}
                       </div>
+                      {user.role !== 'ADMIN' && (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              setMakingAdminUsers(prev => new Set(prev).add(user.id));
+                              makeAdmin({ userId: user.id });
+                            }}
+                            disabled={makingAdminUsers.has(user.id)}
+                            className="text-xs bg-[#008069] text-white px-2 py-1 rounded hover:bg-[#006d5a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {makingAdminUsers.has(user.id) ? '...' : 'Admin'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setRevokingUsers(prev => new Set(prev).add(user.id));
+                              revokeAccess({ userId: user.id });
+                            }}
+                            disabled={revokingUsers.has(user.id)}
+                            className="text-xs bg-[#ffa500] text-white px-2 py-1 rounded hover:bg-[#ff8c00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {revokingUsers.has(user.id) ? '...' : 'Revoke'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setUserToDelete(user.id);
+                              setDeleteModalOpen(true);
+                            }}
+                            disabled={deletingUsers.has(user.id)}
+                            className="text-xs bg-[#dc3545] text-white px-2 py-1 rounded hover:bg-[#c82333] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {deletingUsers.has(user.id) ? '...' : 'Delete'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))

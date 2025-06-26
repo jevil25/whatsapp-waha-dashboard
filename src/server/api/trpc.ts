@@ -1,11 +1,3 @@
-/**
- * YOU PROBABLY DON'T NEED TO EDIT THIS FILE, UNLESS:
- * 1. You want to modify request context (see Part 1).
- * 2. You want to create a new middleware or type of procedure (see Part 3).
- *
- * TL;DR - This is where all the tRPC server stuff is created and plugged in. The pieces you will
- * need to use are documented accordingly near the end.
- */
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
@@ -58,6 +50,39 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
   },
 });
 
+const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
+  if (!ctx.session?.user) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+  return next({
+    ctx: {
+      session: { ...ctx.session, user: ctx.session.user },
+    },
+  });
+});
+
+const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
+  if (!ctx.session?.user || ctx.session.user.role !== 'ADMIN') {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+  return next({
+    ctx: {
+      session: { ...ctx.session, user: ctx.session.user },
+    },
+  });
+});
+
+const enforceUserIsActive = t.middleware(({ ctx, next }) => {
+  if (!ctx.session?.user || ctx.session.user.role === 'GUEST') {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Your account is not yet approved" });
+  }
+  return next({
+    ctx: {
+      session: { ...ctx.session, user: ctx.session.user },
+    },
+  });
+});
+
 /**
  * Create a server-side caller.
  *
@@ -78,81 +103,7 @@ export const createCallerFactory = t.createCallerFactory;
  * @see https://trpc.io/docs/router
  */
 export const createTRPCRouter = t.router;
-
-const enforceUserIsAdmin = t.middleware(async ({ ctx, next }) => {
-  if (!ctx.session?.user) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "You must be logged in to perform this action",
-    });
-  }
-
-  if (ctx.session.user.role !== "ADMIN") {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Only admins can perform this action",
-    });
-  }
-
-  return next({
-    ctx: {
-      session: ctx.session,
-    },
-  });
-});
-
+export const publicProcedure = t.procedure;
+export const protectedProcedure = t.procedure.use(enforceUserIsAuthed);
 export const adminProcedure = t.procedure.use(enforceUserIsAdmin);
-
-/**
- * Middleware for timing procedure execution and adding an artificial delay in development.
- *
- * You can remove this if you don't like it, but it can help catch unwanted waterfalls by simulating
- * network latency that would occur in production but not in local development.
- */
-const timingMiddleware = t.middleware(async ({ next, path }) => {
-  const start = Date.now();
-
-  if (t._config.isDev) {
-    // artificial delay in dev
-    const waitMs = Math.floor(Math.random() * 400) + 100;
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-  }
-
-  const result = await next();
-
-  const end = Date.now();
-  console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
-
-  return result;
-});
-
-/**
- * Public (unauthenticated) procedure
- *
- * This is the base piece you use to build new queries and mutations on your tRPC API. It does not
- * guarantee that a user querying is authorized, but you can still access user session data if they
- * are logged in.
- */
-export const publicProcedure = t.procedure.use(timingMiddleware);
-
-/**
- * Protected (authenticated) procedure
- *
- * If you want a query or mutation to ONLY be accessible to logged in users, use this. It verifies
- * the session is valid and guarantees ctx.session.user is not null.
- */
-const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
-  if (!ctx.session?.user) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "You must be logged in to access this resource",
-    });
-  }
-  return next({
-    ctx: {
-      user: ctx.session.user,
-    },
-  });
-});
-
-export const protectedProcedure = t.procedure.use(timingMiddleware).use(enforceUserIsAuthed);
+export const userProcedure = t.procedure.use(enforceUserIsActive);

@@ -2,10 +2,16 @@
 
 import { authClient } from "~/client/auth";
 import { useRouter } from "next/navigation";
+import { api } from "~/trpc/react";
+import { type WhatsAppSessionWithGroups } from "~/types/whatsapp";
 
 export default function Home() {
   const { data: session, isPending } = authClient.useSession();
   const router = useRouter();
+
+  const { data: whatsAppSession, isLoading: isWhatsAppLoading } = api.user.getWhatsAppSession.useQuery(undefined, {
+    enabled: !!session?.user && session.user.role !== 'GUEST',
+  }) as { data: WhatsAppSessionWithGroups | null | undefined, isLoading: boolean };
 
   const handleSignOut = async () => {
     await authClient.signOut({
@@ -110,28 +116,87 @@ export default function Home() {
 
       <div className="max-w-4xl mx-auto p-4">
         <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
-          <div className="flex items-center mb-6">
-            <div className="w-12 h-12 bg-[#008069] rounded-full flex items-center justify-center">
-              <span className="text-white text-xl">
-                {session.user.name.charAt(0).toUpperCase()}
-              </span>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-[#008069] rounded-full flex items-center justify-center">
+                <span className="text-white text-xl">
+                  {session.user.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="ml-4">
+                <h2 className="text-xl font-medium">{session.user.name}</h2>
+                <p className="text-gray-500">{session.user.email}</p>
+              </div>
             </div>
-            <div className="ml-4">
-              <h2 className="text-xl font-medium">{session.user.name}</h2>
-              <p className="text-gray-500">{session.user.email}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Active</span>
+              {session.user.role === 'ADMIN' && (
+                <span className="text-xs bg-[#008069] text-white px-2 py-0.5 rounded">Admin</span>
+              )}
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="bg-[#f0f2f5] p-4 rounded-lg">
-              <h3 className="font-medium mb-2">Account Status</h3>
-              <p className="text-sm text-green-600">✓ Active</p>
+          {isWhatsAppLoading ? (
+            <div className="space-y-4">
+              <div className="animate-pulse space-y-4">
+                <div className="h-32 bg-gray-100 rounded-lg"></div>
+              </div>
             </div>
-            <div className="bg-[#f0f2f5] p-4 rounded-lg">
-              <h3 className="font-medium mb-2">Role</h3>
-              <p className="text-sm">{session.user.role ?? 'User'}</p>
+          ) : whatsAppSession ? (
+            <div className="space-y-4">
+              <div className="bg-white border border-gray-200 rounded-lg divide-y">
+                <div className="p-4">
+                  <h3 className="text-lg font-medium mb-2">WhatsApp Session</h3>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{whatsAppSession.sessionName}</p>
+                      <p className="text-sm text-gray-500">{whatsAppSession.phoneNumber}</p>
+                    </div>
+                    <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Connected</span>
+                  </div>
+                </div>
+
+                <div className="p-4">
+                  <h3 className="text-lg font-medium mb-2">Connected Groups</h3>
+                  {whatsAppSession.WhatsAppGroups.length > 0 ? (
+                    <div className="space-y-2">
+                      {whatsAppSession.WhatsAppGroups.map(group => (
+                        <div key={group.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                          <div>
+                            <p className="font-medium">{group.groupName}</p>
+                            <p className="text-xs text-gray-500">{group.campaigns.length} active campaigns</p>
+                          </div>
+                          {group.campaigns.length > 0 && (
+                            <div className="space-x-1">
+                              {group.campaigns.map(campaign => (
+                                <span 
+                                  key={campaign.id}
+                                  className={`text-xs px-2 py-0.5 rounded ${
+                                    campaign.status === 'IN_PROGRESS' 
+                                      ? 'bg-blue-100 text-blue-800' 
+                                      : 'bg-yellow-100 text-yellow-800'
+                                  }`}
+                                >
+                                  {campaign.status}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">No groups connected yet</p>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-[#fff3cd] text-[#856404] p-4 rounded-lg border-l-4 border-[#ffeeba]">
+              <p className="font-medium mb-2">No WhatsApp Session Connected</p>
+              <p className="text-sm">Connect your WhatsApp account to start managing your groups.</p>
+            </div>
+          )}
         </div>
       </div>
     </main>
