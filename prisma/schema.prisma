@@ -31,14 +31,12 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   role      UserRole @default(GUEST)
-  password  String
 
-  whatsAppSessions WhatsAppSession[]
-  email            String
-  emailVerified    Boolean
-  image            String?
-  sessions         Session[]
-  accounts         Account[]
+  email         String
+  emailVerified Boolean
+  image         String?
+  sessions      Session[]
+  accounts      Account[]
 
   @@unique([email])
   @@map("user")
@@ -46,13 +44,12 @@ model User {
 
 model WhatsAppSession {
   id          String   @id @default(cuid()) @map("_id")
-  sessionName String
+  sessionName String   @unique
   phoneNumber String
-  userId      String
+  userId      String   @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  User           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   WhatsAppGroups WhatsAppGroup[]
 }
 
@@ -65,6 +62,8 @@ model WhatsAppGroup {
   updatedAt DateTime          @updatedAt
   session   WhatsAppSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   campaigns MessageCampaign[]
+
+  @@unique([groupId, sessionId])
 }
 
 model MessageCampaign {

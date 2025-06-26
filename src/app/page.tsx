@@ -1,9 +1,15 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 'use client';
 
+import Image from 'next/image';
+import { useState, useEffect, useCallback } from 'react';
 import { authClient } from "~/client/auth";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
-import { type WhatsAppSessionWithGroups } from "~/types/whatsapp";
+import { type WhatsAppSessionStatus } from "~/types/session";
 
 export default function Home() {
   const { data: session, isPending } = authClient.useSession();
@@ -11,7 +17,106 @@ export default function Home() {
 
   const { data: whatsAppSession, isLoading: isWhatsAppLoading } = api.user.getWhatsAppSession.useQuery(undefined, {
     enabled: !!session?.user && session.user.role !== 'GUEST',
-  }) as { data: WhatsAppSessionWithGroups | null | undefined, isLoading: boolean };
+    staleTime: Infinity,
+  });
+
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<WhatsAppSessionStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [currentSessionName, setCurrentSessionName] = useState<string | null>(null);
+
+  // Add debug logging
+  console.log('Render state:', {
+    isConnecting,
+    sessionStatus,
+    qrCode: qrCode ? 'present' : 'null',
+    hasSession: !!whatsAppSession,
+    sessionName: whatsAppSession?.sessionName,
+    isWhatsAppLoading: isWhatsAppLoading,
+  });
+
+  const trpcUtils = api.useUtils();
+  
+  const initSession = api.user.initiateWhatsAppSession.useMutation({
+    onSuccess: ({ sessionName }) => {
+      setIsConnecting(true);
+      setCurrentSessionName(sessionName);
+      void pollSessionStatus(sessionName);
+    },
+    onError: (error) => {
+      setError(error.message);
+      setCurrentSessionName(null);
+    },
+  });
+
+  const restartSession = api.user.restartSession.useMutation({
+    onSuccess: (_, { sessionName }) => {
+      setSessionStatus('STARTING');
+      void pollSessionStatus(sessionName);
+    },
+    onError: (error) => {
+      setError(error.message);
+    },
+  });
+
+  const [screenshotKey, setScreenshotKey] = useState(0);
+
+  const pollSessionStatus = useCallback(async (sessionName: string) => {
+    try {
+      const statusResult = await trpcUtils.user.getSessionStatus.fetch({ sessionName });
+      console.log('Session status:', statusResult.status, 'Current session name:', sessionName);
+      console.log('Component state:', {
+        isConnecting,
+        currentSessionName,
+        currentStatus: sessionStatus,
+        hasQRCode: !!qrCode
+      });
+      setSessionStatus(statusResult.status);
+
+      switch (statusResult.status) {
+        case 'STARTING':
+          // Poll again in 2 seconds if still starting
+          return 2000;
+
+        case 'SCAN_QR_CODE':
+          console.log('Fetching QR code for session:', sessionName);
+          const qrResult = await trpcUtils.user.getSessionQR.fetch({ sessionName });
+          setQrCode(qrResult.qr);
+          setScreenshotKey(prev => prev + 1);
+          return 5000;
+
+        case 'WORKING':
+          setQrCode(null);
+          setIsConnecting(false);
+          void trpcUtils.user.getWhatsAppSession.invalidate();
+          return null;
+
+        case 'STOPPED':
+        case 'FAILED':
+          setQrCode(null);
+          return null;
+
+        default:
+          // For any other status, stop polling
+          return null;
+      }
+    } catch {
+      setError('Failed to check session status');
+      setIsConnecting(false);
+      return null;
+    }
+  }, [trpcUtils.user.getSessionStatus, trpcUtils.user.getSessionQR, trpcUtils.user.getWhatsAppSession, isConnecting, currentSessionName, sessionStatus, qrCode]);
+
+  const handleConnect = () => {
+    setError(null);
+    void initSession.mutate();
+  };
+
+  const handleRestart = (sessionName: string) => {
+    setError(null);
+    void restartSession.mutate({ sessionName });
+  };
 
   const handleSignOut = async () => {
     await authClient.signOut({
@@ -22,6 +127,29 @@ export default function Home() {
       },
     });
   };
+
+  // Add useEffect to start polling for existing sessions
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout | undefined;
+    
+    const poll = async () => {
+      if (!whatsAppSession?.sessionName || isConnecting) return;
+      
+      const interval = await pollSessionStatus(whatsAppSession.sessionName);
+      
+      if (interval) {
+        timeoutId = setTimeout(() => void poll(), interval);
+      }
+    };
+
+    void poll();
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [whatsAppSession?.sessionName, isConnecting, pollSessionStatus]);
 
   if (isPending) {
     return (
@@ -41,7 +169,6 @@ export default function Home() {
   }
 
   const isGuestUser = session.user.role === 'GUEST';
-  const isAdminUser = session.user.role === 'ADMIN';
 
   if (isGuestUser) {
     return (
@@ -97,7 +224,7 @@ export default function Home() {
       <div className="bg-[#008069] text-white px-4 py-3 flex justify-between items-center">
         <h1 className="text-xl font-medium">WhatsApp Group Manager</h1>
         <div className="flex items-center gap-3">
-          {isAdminUser && (
+          {session.user.role === 'ADMIN' && (
             <button
               onClick={() => router.push('/admin')}
               className="text-sm bg-[#ffffff1a] px-3 py-1.5 rounded-md hover:bg-[#ffffff33] transition-colors"
@@ -116,26 +243,6 @@ export default function Home() {
 
       <div className="max-w-4xl mx-auto p-4">
         <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-[#008069] rounded-full flex items-center justify-center">
-                <span className="text-white text-xl">
-                  {session.user.name.charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <div className="ml-4">
-                <h2 className="text-xl font-medium">{session.user.name}</h2>
-                <p className="text-gray-500">{session.user.email}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Active</span>
-              {session.user.role === 'ADMIN' && (
-                <span className="text-xs bg-[#008069] text-white px-2 py-0.5 rounded">Admin</span>
-              )}
-            </div>
-          </div>
-
           {isWhatsAppLoading ? (
             <div className="space-y-4">
               <div className="animate-pulse space-y-4">
@@ -152,53 +259,166 @@ export default function Home() {
                       <p className="font-medium">{whatsAppSession.sessionName}</p>
                       <p className="text-sm text-gray-500">{whatsAppSession.phoneNumber}</p>
                     </div>
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Connected</span>
-                  </div>
-                </div>
+                    {(() => {
+                      if (typeof whatsAppSession.sessionName !== 'string') return null;
 
-                <div className="p-4">
-                  <h3 className="text-lg font-medium mb-2">Connected Groups</h3>
-                  {whatsAppSession.WhatsAppGroups.length > 0 ? (
-                    <div className="space-y-2">
-                      {whatsAppSession.WhatsAppGroups.map(group => (
-                        <div key={group.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                          <div>
-                            <p className="font-medium">{group.groupName}</p>
-                            <p className="text-xs text-gray-500">{group.campaigns.length} active campaigns</p>
-                          </div>
-                          {group.campaigns.length > 0 && (
-                            <div className="space-x-1">
-                              {group.campaigns.map(campaign => (
-                                <span 
-                                  key={campaign.id}
-                                  className={`text-xs px-2 py-0.5 rounded ${
-                                    campaign.status === 'IN_PROGRESS' 
-                                      ? 'bg-blue-100 text-blue-800' 
-                                      : 'bg-yellow-100 text-yellow-800'
-                                  }`}
-                                >
-                                  {campaign.status}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">No groups connected yet</p>
-                  )}
+                      switch (sessionStatus) {
+                        case 'WORKING':
+                          return <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Connected</span>;
+                        case 'STOPPED':
+                        case 'FAILED':
+                          return (
+                            <button
+                              onClick={() => handleRestart(whatsAppSession.sessionName)}
+                              className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded hover:bg-yellow-200"
+                            >
+                              {restartSession.isPending ? 'Restarting...' : 'Click to Restart'}
+                            </button>
+                          );
+                        case 'STARTING':
+                          return <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Starting...</span>;
+                        case 'SCAN_QR_CODE':
+                          return <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Waiting for QR Scan</span>;
+                        default:
+                          return null;
+                      }
+                    })()}
+                  </div>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="bg-[#fff3cd] text-[#856404] p-4 rounded-lg border-l-4 border-[#ffeeba]">
-              <p className="font-medium mb-2">No WhatsApp Session Connected</p>
-              <p className="text-sm">Connect your WhatsApp account to start managing your groups.</p>
+            <div className="space-y-4">
+              <div className="bg-[#fff3cd] text-[#856404] p-4 rounded-lg border-l-4 border-[#ffeeba]">
+                <p className="font-medium mb-2">No WhatsApp Session Connected</p>
+                <p className="text-sm">Connect your WhatsApp account to start managing your groups.</p>
+              </div>
+              <h3 className="text-lg font-medium mb-4">
+                  Connect WhatsApp
+                  <span className="text-xs ml-2 bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                    Status: {sessionStatus ?? 'Not Connected'}
+                  </span>
+                </h3>
+                
+                {error ? (
+                  <div className="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
+                    <p>{error}</p>
+                  </div>
+                ) : null}
+
+                  {!isConnecting && (
+                    <button
+                      onClick={handleConnect}
+                      className="w-full bg-[#008069] text-white px-4 py-2 rounded-lg hover:bg-[#006d5b] transition-colors"
+                      disabled={initSession.isPending}
+                    >
+                      {initSession.isPending ? 'Initializing...' : 'Connect WhatsApp'}
+                    </button>
+                  )}
             </div>
           )}
-        </div>
-      </div>
-    </main>
-  );
-}
+            <div className="space-y-4">
+              <div className="bg-white p-6 rounded-lg border border-gray-200">
+                    {sessionStatus === 'STARTING' && (
+                      <div className="flex items-center justify-center p-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#008069]"></div>
+                        <span className="ml-3 text-sm text-gray-600">
+                          Starting WhatsApp session...
+                        </span>
+                      </div>
+                    )}
+
+                    {sessionStatus === 'SCAN_QR_CODE' && (
+                      <div className="space-y-4 mt-4">
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium mb-2">Scan QR Code</h4>
+                          <ol className="list-decimal list-inside text-sm space-y-1 text-gray-600 mb-4">
+                            <li>Open WhatsApp on your phone</li>
+                            <li>Tap Menu (⋮) or Settings</li>
+                            <li>Select Linked Devices</li>
+                            <li>Tap on &quot;Link a Device&quot;</li>
+                            <li>Point your phone to this screen to scan the code</li>
+                          </ol>
+                          <div className="flex flex-col md:flex-row gap-4 items-center justify-center">
+                            <div className="relative w-64 h-64 bg-white border-2 border-gray-300 rounded-lg p-4">
+                              {qrCode ? (
+                                <Image 
+                                  src={`data:image/png;base64,${qrCode}`} 
+                                  alt="WhatsApp QR Code"
+                                  fill
+                                  priority
+                                  style={{ objectFit: 'contain' }}
+                                  onError={(e) => {
+                                    console.error('QR Code image failed to load:', e);
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                  onLoad={() => {
+                                    console.log('QR Code image loaded successfully');
+                                  }}
+                                />
+                              ) : (
+                                <div className="flex items-center justify-center h-full">
+                                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#008069]" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <div className="relative w-80 h-56 bg-white border-2 border-gray-300 rounded-lg p-4">
+                                {whatsAppSession?.sessionName ? (
+                                  <Image 
+                                    key={screenshotKey}
+                                    src={`/api/screenshot?session=${whatsAppSession.sessionName}&_=${screenshotKey}`}
+                                    alt="WhatsApp Screenshot"
+                                    fill
+                                    priority
+                                    style={{ objectFit: 'contain' }}
+                                    className="rounded-lg"
+                                    onError={(e) => {
+                                      console.error('Screenshot failed to load:', e);
+                                      e.currentTarget.style.display = 'none';
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="flex items-center justify-center h-full">
+                                    <p className="text-sm text-gray-500">Waiting for session...</p>
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-500 mt-2">Live Preview</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {(sessionStatus === 'STOPPED' || sessionStatus === 'FAILED') && (
+                      <div className="bg-yellow-100 text-yellow-800 p-4 rounded-lg">
+                        <p className="font-medium mb-2">Session {sessionStatus === 'STOPPED' ? 'Stopped' : 'Failed'}</p>
+                        <p className="text-sm mb-4">
+                          {sessionStatus === 'STOPPED'
+                            ? 'The WhatsApp session is currently stopped.'
+                            : 'There was an error with the WhatsApp session.'}
+                        </p>
+                        {currentSessionName && (
+                          <button
+                            onClick={() => handleRestart(currentSessionName)}
+                            className="bg-yellow-200 text-yellow-800 px-4 py-2 rounded hover:bg-yellow-300 transition-colors"
+                            disabled={restartSession.isPending}
+                          >
+                            {restartSession.isPending ? 'Restarting...' : 'Restart Session'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="text-center mt-4">
+                      <span className="text-sm text-gray-500">
+                        Status: {sessionStatus ?? 'Initializing...'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+            </div>
+          </div>
+        </main>
+)}
