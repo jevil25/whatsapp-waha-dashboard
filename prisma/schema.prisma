@@ -2,106 +2,156 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "mongodb"
-    url      = env("DATABASE_URL")
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
-    ADMIN
-    USER
-    GUEST
+  ADMIN
+  USER
+  GUEST
 }
 
 enum CampaignStatus {
-    DRAFT
-    SCHEDULED
-    IN_PROGRESS
-    COMPLETED
-    CANCELLED
-    FAILED
+  DRAFT
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  FAILED
 }
 
 model User {
-    id   String @id @default(auto()) @map("_id") @db.ObjectId
-    name String
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
-    role UserRole @default(GUEST)
+  id        String   @id @default(cuid()) @map("_id")
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  role      UserRole @default(GUEST)
 
-    whatsAppSessions WhatsAppSession[]
+  whatsAppSessions WhatsAppSession[]
+  email            String
+  emailVerified    Boolean
+  image            String?
+  sessions         Session[]
+  accounts         Account[]
+
+  @@unique([email])
+  @@map("user")
 }
 
 model WhatsAppSession {
-    id         String @id @default(auto()) @map("_id") @db.ObjectId
-    sessionName String
-    phoneNumber String
-    userId    String @db.ObjectId
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+  id          String   @id @default(cuid()) @map("_id")
+  sessionName String
+  phoneNumber String
+  userId      String  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-    User User @relation(fields: [userId], references: [id], onDelete: Cascade)
-    WhatsAppGroups WhatsAppGroup[]
+  User           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  WhatsAppGroups WhatsAppGroup[]
 }
 
 model WhatsAppGroup {
-    id         String @id @default(auto()) @map("_id") @db.ObjectId
-    groupName  String
-    groupId    String
-    sessionId  String @db.ObjectId
-    createdAt  DateTime @default(now())
-    updatedAt  DateTime @updatedAt
-    
-    session    WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-    campaigns  MessageCampaign[]
+  id        String            @id @default(cuid()) @map("_id")
+  groupName String
+  groupId   String
+  sessionId String            
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  session   WhatsAppSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  campaigns MessageCampaign[]
 }
 
 model MessageCampaign {
-    id           String @id @default(auto()) @map("_id") @db.ObjectId
-    sessionId    String @db.ObjectId
-    groupId      String @db.ObjectId
-    startDate    DateTime
-    endDate      DateTime
-    sendTimeUtc  DateTime
-    template     String
-    memberName   String
-    memberNumber String
-    amount       Float
-    paymentInfo  String
-    messages     Message[]
-    createdAt    DateTime @default(now())
-    updatedAt    DateTime @updatedAt
-    isDeleted    Boolean @default(false)
-    isEdited     Boolean @default(false)
-    isCompleted  Boolean @default(false)
-    status       CampaignStatus @default(SCHEDULED)
+  id           String         @id @default(cuid()) @map("_id")
+  sessionId    String        
+  groupId      String        
+  startDate    DateTime
+  endDate      DateTime
+  sendTimeUtc  DateTime
+  template     String
+  memberName   String
+  memberNumber String
+  amount       Float
+  paymentInfo  String
+  messages     Message[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  isDeleted    Boolean        @default(false)
+  isEdited     Boolean        @default(false)
+  isCompleted  Boolean        @default(false)
+  status       CampaignStatus @default(SCHEDULED)
 
-    group        WhatsAppGroup   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  group WhatsAppGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 }
 
 model Message {
-    id              String @id @default(auto()) @map("_id") @db.ObjectId
-    sessionId       String @db.ObjectId
-    sender          String
-    content         String
-    scheduledAt     DateTime
-    sentAt          DateTime?
-    retryCount      Int @default(0)
-    maxRetries      Int @default(3)
-    dynamicFields   Json?
-    MessageCampaignId String @db.ObjectId
-    createdAt       DateTime @default(now())
-    updatedAt       DateTime @updatedAt
-    isDeleted       Boolean @default(false)
-    isEdited        Boolean @default(false)
-    isSent          Boolean @default(false)
-    isFailed        Boolean @default(false)
-    failedReason    String?
+  id                String    @id @default(cuid()) @map("_id")
+  sessionId         String   
+  sender            String
+  content           String
+  scheduledAt       DateTime
+  sentAt            DateTime?
+  retryCount        Int       @default(0)
+  maxRetries        Int       @default(3)
+  dynamicFields     Json?
+  MessageCampaignId String    
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  isDeleted         Boolean   @default(false)
+  isEdited          Boolean   @default(false)
+  isSent            Boolean   @default(false)
+  isFailed          Boolean   @default(false)
+  failedReason      String?
 
-    MessageCampaign MessageCampaign @relation(fields: [MessageCampaignId], references: [id], onDelete: Cascade)
+  MessageCampaign MessageCampaign @relation(fields: [MessageCampaignId], references: [id], onDelete: Cascade)
 }
 
+model Session {
+  id        String   @id @default(cuid()) @map("_id")
+  expiresAt DateTime
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid()) @map("_id")
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(cuid()) @map("_id")
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
