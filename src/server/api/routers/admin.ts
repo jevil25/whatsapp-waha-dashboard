@@ -1,0 +1,94 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { z } from 'zod';
+import { createTRPCRouter, adminProcedure } from '../trpc';
+import { db } from '~/server/db';
+import { TRPCError } from '@trpc/server';
+import { auth } from '~/server/auth';
+
+export const adminRouter = createTRPCRouter({
+  getPendingUsers: adminProcedure
+    .query(async () => {
+      const pendingUsers = await db.user.findMany({
+        where: {
+          role: 'GUEST',
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      return pendingUsers;
+    }),
+
+  approveUser: adminProcedure
+    .input(z.object({
+      userId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const updatedUser = await db.user.update({
+        where: {
+          id: input.userId,
+        },
+        data: {
+          role: 'USER',
+        },
+      });
+
+      return updatedUser;
+    }),
+
+  addNewUser: adminProcedure
+    .input(z.object({
+      name: z.string().min(1),
+      email: z.string().email(),
+      password: z.string().min(8).max(100),
+    }))
+    .mutation(async ({ input }) => {
+      const existingUser = await db.user.findUnique({
+        where: {
+          email: input.email,
+        },
+      });
+
+      if (existingUser) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'User with this email already exists',
+        });
+      }
+
+      const newUser = await auth.api.signUpEmail({
+        body: {
+            name: input.name,
+            email: input.email,
+            password: input.password,
+        }
+      })
+        if (!newUser.user) {
+            throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: "Failed to create user",
+            });
+        }
+        await db.user.update({
+            where: {
+                id: newUser.user.id,
+            },
+            data: {
+                role: 'USER',
+            }
+        });
+
+      return newUser;
+    }),
+});

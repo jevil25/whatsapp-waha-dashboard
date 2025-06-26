@@ -35,6 +35,7 @@ export default function Home() {
   }
 
   const isGuestUser = session.user.role === 'GUEST';
+  const isAdminUser = session.user.role === 'ADMIN';
 
   if (isGuestUser) {
     return (
@@ -89,12 +90,22 @@ export default function Home() {
     <main className="min-h-screen bg-[#f0f2f5]">
       <div className="bg-[#008069] text-white px-4 py-3 flex justify-between items-center">
         <h1 className="text-xl font-medium">WhatsApp Group Manager</h1>
-        <button
-          onClick={handleSignOut}
-          className="text-sm bg-[#ffffff1a] px-3 py-1.5 rounded-md hover:bg-[#ffffff33] transition-colors"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-3">
+          {isAdminUser && (
+            <button
+              onClick={() => router.push('/admin')}
+              className="text-sm bg-[#ffffff1a] px-3 py-1.5 rounded-md hover:bg-[#ffffff33] transition-colors"
+            >
+              Admin Dashboard
+            </button>
+          )}
+          <button
+            onClick={handleSignOut}
+            className="text-sm bg-[#ffffff1a] px-3 py-1.5 rounded-md hover:bg-[#ffffff33] transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
 
       <div className="max-w-4xl mx-auto p-4">
