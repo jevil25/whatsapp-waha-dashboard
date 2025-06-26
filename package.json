@@ -9,7 +9,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "prisma:generate": "prisma generate",
-    "dev": "next dev --turbo",
+    "dev": "next dev",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "postinstall": "prisma generate",

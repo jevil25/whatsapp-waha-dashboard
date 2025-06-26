@@ -1,12 +1,20 @@
 'use client';
 
 import { authClient } from "~/client/auth";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   const { data: session, isPending } = authClient.useSession();
+  const router = useRouter();
 
   const handleSignOut = async () => {
-    await authClient.signOut();
+    await authClient.signOut({
+     fetchOptions: {
+        onSuccess: () => {
+          router.push("/auth");
+        },
+      },
+    });
   };
 
   if (isPending) {

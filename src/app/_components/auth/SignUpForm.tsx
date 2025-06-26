@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { authClient } from "~/client/auth";
+import { useRouter } from "next/navigation";
 
 export function SignUpForm() {
   const [name, setName] = useState("");
@@ -9,6 +10,7 @@ export function SignUpForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,11 +18,16 @@ export function SignUpForm() {
     setLoading(true);
 
     try {
-      await authClient.signUp.email({
+      const { error } = await authClient.signUp.email({
         name,
         email,
         password,
       });
+      if (error) {
+        setError(error.message);
+      } else {
+        router.push("/auth")
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign up');
     } finally {

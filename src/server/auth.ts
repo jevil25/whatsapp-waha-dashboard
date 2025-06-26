@@ -5,15 +5,10 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 export const auth = betterAuth({
-    emailAndPassword: {
+    emailAndPassword: {  
         enabled: true
     },
     database: prismaAdapter(prisma, {
-        provider: "mongodb"
+        provider: "mongodb",
     }),
-    advanced: {
-        database: {
-            generateId: false
-        }
-    }
 });
