@@ -12,7 +12,7 @@ export function GroupSelector({ sessionName, onGroupSelect, selectedGroupId }: G
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const pageSize = 20;
+  const pageSize = 10;
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch } = 
     api.user.getWhatsAppGroups.useInfiniteQuery({
