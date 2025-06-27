@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
@@ -270,5 +268,61 @@ export const userRouter = createTRPCRouter({
           cause: error,
         });
       }
-    })
+    }),
+
+  getWhatsAppGroups: userProcedure
+    .input(z.object({
+      sessionName: z.string(),
+      limit: z.number().min(1).max(50).default(20),
+      cursor: z.number().nullish(),
+      search: z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      if (!WAHA_API_URL) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'WhatsApp API URL is not configured',
+        });
+      }
+
+      const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/groups`, {
+        method: 'GET',
+        headers: WAHA_HEADERS,
+      });
+
+      if (!response.ok) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch WhatsApp groups',
+        });
+      }
+
+      const groups = await response.json() as { id: { _serialized: string }, name: string }[];
+      
+      // Map and filter groups
+      let filteredGroups = groups
+        .map(group => ({
+          groupId: group.id._serialized,
+          groupName: group.name
+        }))
+        .sort((a, b) => a.groupName.localeCompare(b.groupName));
+
+      // Apply search filter if provided
+      if (input.search) {
+        const searchLower = input.search.toLowerCase();
+        filteredGroups = filteredGroups.filter(
+          group => group.groupName.toLowerCase().includes(searchLower)
+        );
+      }
+
+      // Apply pagination
+      const start = input.cursor ?? 0;
+      const items = filteredGroups.slice(start, start + input.limit);
+      const nextCursor = items.length === input.limit ? start + input.limit : undefined;
+
+      return {
+        items,
+        nextCursor,
+      };
+    }),
 });

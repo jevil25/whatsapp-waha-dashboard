@@ -1,7 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 'use client';
 
 import Image from 'next/image';
@@ -10,30 +6,22 @@ import { authClient } from "~/client/auth";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { type WhatsAppSessionStatus } from "~/types/session";
+import { GroupSelector } from './_components/whatsapp/GroupSelector';
 
 export default function Home() {
   const { data: session, isPending } = authClient.useSession();
   const router = useRouter();
-
-  const { data: whatsAppSession, isLoading: isWhatsAppLoading } = api.user.getWhatsAppSession.useQuery(undefined, {
-    enabled: !!session?.user && session.user.role !== 'GUEST',
-    staleTime: Infinity,
-  });
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [sessionStatus, setSessionStatus] = useState<WhatsAppSessionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentSessionName, setCurrentSessionName] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
-  // Add debug logging
-  console.log('Render state:', {
-    isConnecting,
-    sessionStatus,
-    qrCode: qrCode ? 'present' : 'null',
-    hasSession: !!whatsAppSession,
-    sessionName: whatsAppSession?.sessionName,
-    isWhatsAppLoading: isWhatsAppLoading,
+  const { data: whatsAppSession, isLoading: isWhatsAppLoading } = api.user.getWhatsAppSession.useQuery(undefined, {
+    enabled: !!session?.user && session.user.role !== 'GUEST',
+    staleTime: Infinity,
   });
 
   const trpcUtils = api.useUtils();
@@ -77,13 +65,6 @@ export default function Home() {
   const pollSessionStatus = useCallback(async (sessionName: string) => {
     try {
       const statusResult = await trpcUtils.user.getSessionStatus.fetch({ sessionName });
-      console.log('Session status:', statusResult.status, 'Current session name:', sessionName);
-      console.log('Component state:', {
-        isConnecting,
-        currentSessionName,
-        currentStatus: sessionStatus,
-        hasQRCode: !!qrCode
-      });
       setSessionStatus(statusResult.status);
 
       switch (statusResult.status) {
@@ -92,7 +73,6 @@ export default function Home() {
           return 2000;
 
         case 'SCAN_QR_CODE':
-          console.log('Fetching QR code for session:', sessionName);
           const qrResult = await trpcUtils.user.getSessionQR.fetch({ sessionName });
           setQrCode(qrResult.qr);
           setScreenshotKey(prev => prev + 1);
@@ -118,7 +98,7 @@ export default function Home() {
       setIsConnecting(false);
       return null;
     }
-  }, [trpcUtils.user.getSessionStatus, trpcUtils.user.getSessionQR, trpcUtils.user.getWhatsAppSession, isConnecting, currentSessionName, sessionStatus, qrCode]);
+  }, [trpcUtils.user.getSessionStatus, trpcUtils.user.getSessionQR, trpcUtils.user.getWhatsAppSession]);
 
   const handleConnect = () => {
     setError(null);
@@ -277,7 +257,7 @@ export default function Home() {
                       switch (sessionStatus) {
                         case 'WORKING':
                           return (
-                            <>
+                            <div className="flex items-center gap-4">
                               <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Connected</span>
                               <button
                                 onClick={() => logoutSession.mutate({ sessionName: whatsAppSession.sessionName })}
@@ -286,7 +266,7 @@ export default function Home() {
                               >
                                 {logoutSession.isPending ? 'Disconnecting...' : 'Disconnect'}
                               </button>
-                            </>
+                            </div>
                           );
                         case 'STOPPED':
                         case 'FAILED':
@@ -372,11 +352,7 @@ export default function Home() {
                                   priority
                                   style={{ objectFit: 'contain' }}
                                   onError={(e) => {
-                                    console.error('QR Code image failed to load:', e);
                                     e.currentTarget.style.display = 'none';
-                                  }}
-                                  onLoad={() => {
-                                    console.log('QR Code image loaded successfully');
                                   }}
                                 />
                               ) : (
@@ -397,7 +373,6 @@ export default function Home() {
                                     style={{ objectFit: 'contain' }}
                                     className="rounded-lg"
                                     onError={(e) => {
-                                      console.error('Screenshot failed to load:', e);
                                       e.currentTarget.style.display = 'none';
                                     }}
                                   />
@@ -431,6 +406,17 @@ export default function Home() {
                             {restartSession.isPending ? 'Restarting...' : 'Restart Session'}
                           </button>
                         )}
+                      </div>
+                    )}
+
+                    {sessionStatus === 'WORKING' && whatsAppSession?.sessionName && (
+                      <div className="mt-8 border-t pt-6">
+                        <h3 className="text-lg font-medium mb-4">WhatsApp Groups</h3>
+                        <GroupSelector
+                          sessionName={whatsAppSession.sessionName}
+                          selectedGroupId={selectedGroupId}
+                          onGroupSelect={setSelectedGroupId}
+                        />
                       </div>
                     )}
 
