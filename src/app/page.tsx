@@ -19,6 +19,13 @@ export default function Home() {
   const [currentSessionName, setCurrentSessionName] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
+  // New state variables for scheduling
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [messageTime, setMessageTime] = useState('12:00');
+  const [messageTemplate, setMessageTemplate] = useState('');
+  const [messagePreview, setMessagePreview] = useState('');
+
   const { data: whatsAppSession, isLoading: isWhatsAppLoading } = api.user.getWhatsAppSession.useQuery(undefined, {
     enabled: !!session?.user && session.user.role !== 'GUEST',
     staleTime: Infinity,
@@ -142,6 +149,29 @@ export default function Home() {
       }
     };
   }, [whatsAppSession?.sessionName, isConnecting, pollSessionStatus]);
+
+  // Function to generate message preview
+  const updateMessagePreview = useCallback(() => {
+    if (!messageTemplate || !startDate || !endDate) {
+      setMessagePreview('');
+      return;
+    }
+
+    const endDateObj = new Date(endDate);
+    const today = new Date();
+    const daysLeft = Math.ceil((endDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    let preview = messageTemplate;
+    // Replace dynamic placeholders
+    preview = preview.replace(/{days_left}/g, daysLeft.toString());
+    
+    setMessagePreview(preview);
+  }, [messageTemplate, startDate, endDate]);
+
+  // Update preview when dependencies change
+  useEffect(() => {
+    updateMessagePreview();
+  }, [messageTemplate, startDate, endDate, updateMessagePreview]);
 
   if (isPending) {
     return (
@@ -417,6 +447,92 @@ export default function Home() {
                           selectedGroupId={selectedGroupId}
                           onGroupSelect={setSelectedGroupId}
                         />
+                        
+                        {selectedGroupId && (
+                          <div className="mt-6 border-t pt-6">
+                            <h4 className="text-lg font-medium mb-4">Schedule Messages</h4>
+                            <form className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
+                                    Start Date
+                                  </label>
+                                  <input
+                                    type="date"
+                                    id="startDate"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
+                                    min={new Date().toISOString().split('T')[0]}
+                                    required
+                                  />
+                                </div>
+                                
+                                <div>
+                                  <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
+                                    End Date
+                                  </label>
+                                  <input
+                                    type="date"
+                                    id="endDate"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
+                                    min={startDate || new Date().toISOString().split('T')[0]}
+                                    required
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <label htmlFor="messageTime" className="block text-sm font-medium text-gray-700 mb-1">
+                                  Time to Send (Central Time)
+                                </label>
+                                <input
+                                  type="time"
+                                  id="messageTime"
+                                  value={messageTime}
+                                  onChange={(e) => setMessageTime(e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
+                                  required
+                                />
+                              </div>
+
+                              <div>
+                                <label htmlFor="messageTemplate" className="block text-sm font-medium text-gray-700 mb-1">
+                                  Message Template
+                                  <span className="text-xs text-gray-500 ml-2">
+                                    Use {'{days_left}'} to show remaining days
+                                  </span>
+                                </label>
+                                <textarea
+                                  id="messageTemplate"
+                                  value={messageTemplate}
+                                  onChange={(e) => setMessageTemplate(e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069] min-h-[100px]"
+                                  placeholder="Enter your message here. Use {days_left} to show the countdown."
+                                  required
+                                />
+                              </div>
+
+                              {messageTemplate && messagePreview && (
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                  <h5 className="text-sm font-medium text-gray-700 mb-2">Message Preview</h5>
+                                  <div className="bg-white p-3 rounded border border-gray-200 whitespace-pre-wrap">
+                                    {messagePreview}
+                                  </div>
+                                </div>
+                              )}
+
+                              <button
+                                type="submit"
+                                className="w-full bg-[#008069] text-white px-4 py-2 rounded-lg hover:bg-[#006d5b] transition-colors"
+                              >
+                                Schedule Messages
+                              </button>
+                            </form>
+                          </div>
+                        )}
                       </div>
                     )}
 
