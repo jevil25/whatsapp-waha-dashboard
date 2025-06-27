@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { authClient } from "~/client/auth";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
@@ -16,12 +16,12 @@ export default function Home() {
 
   const [isCompletedCampaignsOpen, setIsCompletedCampaignsOpen] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [qrCode, setQrCode] = useState<string | null>(null);
   const [sessionStatus, setSessionStatus] = useState<WhatsAppSessionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentSessionName, setCurrentSessionName] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedGroupName, setSelectedGroupName] = useState<string | null>(null);
+  const [screenshotKey, setScreenshotKey] = useState(0);
 
   // New state variables for scheduling
   const [startDate, setStartDate] = useState('');
@@ -61,7 +61,6 @@ export default function Home() {
 
   const logoutSession = api.user.logoutSession.useMutation({
     onSuccess: () => {
-      setQrCode(null);
       setSessionStatus(null);
       setCurrentSessionName(null);
       void trpcUtils.user.getWhatsAppSession.invalidate();
@@ -71,49 +70,69 @@ export default function Home() {
     },
   });
 
-  const [screenshotKey, setScreenshotKey] = useState(0);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval>>(null);
+  const sessionStatusRef = useRef<WhatsAppSessionStatus | null>(null);
+  const currentSessionNameRef = useRef<string | null>(null);
 
   const pollSessionStatus = useCallback(async (sessionName: string) => {
     try {
       const statusResult = await trpcUtils.user.getSessionStatus.fetch({ sessionName });
+      sessionStatusRef.current = statusResult.status;
       setSessionStatus(statusResult.status);
 
-      switch (statusResult.status) {
-        case 'STARTING':
-          // Poll again in 2 seconds if still starting
-          return 2000;
-
-        case 'SCAN_QR_CODE':
-          const qrResult = await trpcUtils.user.getSessionQR.fetch({ sessionName });
-          setQrCode(qrResult.qr);
-          setScreenshotKey(prev => prev + 1);
-          return 5000;
-
-        case 'WORKING':
-          setQrCode(null);
-          setIsConnecting(false);
-          void trpcUtils.user.getWhatsAppSession.invalidate();
-          return null;
-
-        case 'STOPPED':
-        case 'FAILED':
-          setQrCode(null);
-          return null;
-
-        default:
-          // For any other status, stop polling
-          return null;
+      if (statusResult.status === 'WORKING') {
+        setIsConnecting(false);
       }
     } catch {
       setError('Failed to check session status');
       setIsConnecting(false);
-      return null;
     }
-  }, [trpcUtils.user.getSessionStatus, trpcUtils.user.getSessionQR, trpcUtils.user.getWhatsAppSession]);
+  }, [trpcUtils.user.getSessionStatus]);
+
+  const startPolling = useCallback((sessionName: string) => {
+    // Clear any existing polling interval
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+
+    // Store the session name
+    currentSessionNameRef.current = sessionName;
+    setCurrentSessionName(sessionName);
+
+    // Initial poll
+    void pollSessionStatus(sessionName);
+
+    // Start polling every 3 seconds
+    pollIntervalRef.current = setInterval(() => {
+      if (currentSessionNameRef.current) {
+        void pollSessionStatus(currentSessionNameRef.current);
+      }
+    }, 3000);
+  }, [pollSessionStatus]);
+
+  // Start polling when component mounts or when session changes
+  useEffect(() => {
+    if (whatsAppSession?.sessionName) {
+      startPolling(whatsAppSession.sessionName);
+    }
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, [whatsAppSession?.sessionName, startPolling]);
 
   const handleConnect = () => {
     setError(null);
-    void initSession.mutate();
+    initSession.mutate(undefined, {
+      onSuccess: ({ sessionName }) => {
+        setIsConnecting(true);
+        setCurrentSessionName(sessionName);
+        startPolling(sessionName);
+        void trpcUtils.user.getWhatsAppSession.invalidate();
+      },
+    });
   };
 
   const handleRestart = (sessionName: string) => {
@@ -131,28 +150,19 @@ export default function Home() {
     });
   };
 
-  // Add useEffect to start polling for existing sessions
+
+  const handleRefreshScreen = () => {
+    setScreenshotKey(prev => prev + 1);
+  };
+
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout | undefined;
-    
-    const poll = async () => {
-      if (!whatsAppSession?.sessionName || isConnecting) return;
-      
-      const interval = await pollSessionStatus(whatsAppSession.sessionName);
-      
-      if (interval) {
-        timeoutId = setTimeout(() => void poll(), interval);
-      }
-    };
-
-    void poll();
-
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [whatsAppSession?.sessionName, isConnecting, pollSessionStatus]);
+    if (sessionStatus === 'SCAN_QR_CODE') {
+      const interval = setInterval(() => {
+        setScreenshotKey(prev => prev + 1);
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [sessionStatus]);
 
   // Function to generate message preview
   const updateMessagePreview = useCallback(() => {
@@ -427,47 +437,77 @@ export default function Home() {
                               <li>Tap on &quot;Link a Device&quot;</li>
                               <li>Point your phone to this screen to scan the code</li>
                             </ol>
-                            <div className="flex flex-col md:flex-row gap-4 items-center justify-center">
-                              <div className="relative w-64 h-64 bg-white border-2 border-gray-300 rounded-lg p-4">
-                                {qrCode ? (
+                            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+                              <div className="flex">
+                                <div className="flex-shrink-0">
+                                  <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                  </svg>
+                                </div>
+                                <div className="ml-3">
+                                  <p className="text-sm text-blue-700">
+                                    After scanning, if you see the WhatsApp chat screen but the status doesn&apos;t show as &quot;Connected&quot;, please refresh the page.
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-center">
+                                <div className="relative w-[520px] h-[400px] bg-white border-2 border-gray-300 rounded-lg p-4">
+                                {whatsAppSession?.sessionName ? (
                                   <Image 
-                                    src={`data:image/png;base64,${qrCode}`} 
-                                    alt="WhatsApp QR Code"
-                                    fill
-                                    priority
-                                    style={{ objectFit: 'contain' }}
-                                    onError={(e) => {
-                                      e.currentTarget.style.display = 'none';
-                                    }}
+                                  key={screenshotKey}
+                                  src={`/api/screenshot?session=${whatsAppSession.sessionName}&_=${screenshotKey}`}
+                                  alt="WhatsApp Screenshot"
+                                  fill
+                                  priority
+                                  style={{ objectFit: 'contain' }}
+                                  className="rounded-lg"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
                                   />
                                 ) : (
                                   <div className="flex items-center justify-center h-full">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#008069]" />
+                                  <p className="text-sm text-gray-500">Waiting for session...</p>
                                   </div>
                                 )}
-                              </div>
-                              <div className="flex flex-col items-center">
-                                <div className="relative w-80 h-56 bg-white border-2 border-gray-300 rounded-lg p-4">
-                                  {whatsAppSession?.sessionName ? (
-                                    <Image 
-                                      key={screenshotKey}
-                                      src={`/api/screenshot?session=${whatsAppSession.sessionName}&_=${screenshotKey}`}
-                                      alt="WhatsApp Screenshot"
-                                      fill
-                                      priority
-                                      style={{ objectFit: 'contain' }}
-                                      className="rounded-lg"
-                                      onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                      }}
-                                    />
-                                  ) : (
-                                    <div className="flex items-center justify-center h-full">
-                                      <p className="text-sm text-gray-500">Waiting for session...</p>
-                                    </div>
-                                  )}
                                 </div>
-                                <p className="text-sm text-gray-500 mt-2">Live Preview</p>
+                              <div className="mt-4 flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={handleRefreshScreen}
+                                    className="text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-200 transition-colors flex items-center gap-2"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    Refresh Preview
+                                  </button>
+                                  <p className="text-sm text-gray-500">Auto-refreshes every 5s</p>
+                                </div>
+                                {whatsAppSession?.sessionName && (
+                                  <button
+                                    onClick={() => handleRestart(whatsAppSession.sessionName)}
+                                    className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1.5 rounded-md hover:bg-yellow-200 transition-colors flex items-center gap-2"
+                                    disabled={restartSession.isPending}
+                                  >
+                                    {restartSession.isPending ? (
+                                      <>
+                                        <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                        Restarting...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                        Restart Session
+                                      </>
+                                    )}
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -633,4 +673,4 @@ export default function Home() {
             onClose={() => setIsCompletedCampaignsOpen(false)}
           />
         </div>
-)};
+)}

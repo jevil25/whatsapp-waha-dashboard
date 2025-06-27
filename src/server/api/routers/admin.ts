@@ -190,6 +190,9 @@ export const adminRouter = createTRPCRouter({
   getWhatsAppSessions: adminProcedure
     .query(async () => {
       return await db.whatsAppSession.findMany({
+        where: {
+          status: "CONNECTED",
+        },
         include: {
           WhatsAppGroups: true,
         },

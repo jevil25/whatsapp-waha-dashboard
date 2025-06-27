@@ -23,7 +23,10 @@ export const userRouter = createTRPCRouter({
     .query(async ({ ctx }) => {
       const session = await db.whatsAppSession.findUnique({
         where: {
-           userId: ctx.session.user.id,
+           userId_status: {
+            userId: ctx.session.user.id,
+            status: 'CONNECTED',
+           }
         },
         select: {
           id: true,
@@ -67,40 +70,66 @@ export const userRouter = createTRPCRouter({
       const sessionName = `session_${timestamp}`;
 
       try {
-        const response = await fetch(`${WAHA_API_URL}/api/sessions`, {
-          method: 'POST',
-          headers: WAHA_HEADERS,
-          body: JSON.stringify({ name: sessionName }),
-        });
-
-        if (!response.ok) {
-          console.error('Failed to create WhatsApp session:', response.statusText);
-          throw new Error('Failed to create WhatsApp session');
-        }
-
-        const startResponse = await fetch(`${WAHA_API_URL}/api/sessions/${sessionName}/start`, {
-            method: 'POST',
-            headers: WAHA_HEADERS,
-        });
-    
-        if (!startResponse.ok) {
-            await fetch(`${WAHA_API_URL}/api/sessions/${sessionName}`, {
-                method: 'DELETE',
-                headers: WAHA_HEADERS,
-            });
-          console.error('Failed to start WhatsApp session:', startResponse.statusText);
-          throw new Error('Failed to start WhatsApp session');
-        }
-
-        const whatsappSession = await db.whatsAppSession.create({
-          data: {
+        const whatsappSession = await db.whatsAppSession.upsert({
+          where: {
+            userId: ctx.session.user.id,
+          },
+          update: {
+            status: 'CONNECTED',
+          },
+          create: {
             sessionName,
             phoneNumber: '',
             userId: ctx.session.user.id,
           },
         });
 
-        return { sessionName, id: whatsappSession.id };
+        const statusResponse = await fetch(`${WAHA_API_URL}/api/sessions/${whatsappSession.sessionName}`, {
+          headers: WAHA_HEADERS,
+        });
+        const data = await statusResponse.json();
+        if (data.status == 'WORKING' || data.status == 'SCAN_QR_CODE') {
+          const result = await db.whatsAppSession.update({
+            where: { id: whatsappSession.id },
+            data: { status: 'CONNECTED' },
+          });
+          return { sessionName: result.sessionName, id: result.id };
+        } 
+
+        const response = await fetch(`${WAHA_API_URL}/api/sessions`, {
+          method: 'POST',
+          headers: WAHA_HEADERS,
+          body: JSON.stringify({ name: whatsappSession.sessionName })
+        });
+
+        if (!response.ok) {
+          console.error('Failed to create WhatsApp session:', response.statusText);
+          await db.whatsAppSession.update({
+            where: { id: whatsappSession.id },
+            data: { status: 'DISCONNECTED' },
+          });
+          throw new Error('Failed to create WhatsApp session');
+        }
+
+        const startResponse = await fetch(`${WAHA_API_URL}/api/sessions/${whatsappSession.sessionName}/start`, {
+            method: 'POST',
+            headers: WAHA_HEADERS,
+        });
+    
+        if (!startResponse.ok) {
+            await fetch(`${WAHA_API_URL}/api/sessions/${whatsappSession.sessionName}`, {
+                method: 'DELETE',
+                headers: WAHA_HEADERS,
+            });
+            await db.whatsAppSession.update({
+              where: { id: whatsappSession.id },
+              data: { status: 'DISCONNECTED' },
+            });
+          console.error('Failed to start WhatsApp session:', startResponse.statusText);
+          throw new Error('Failed to start WhatsApp session');
+        }
+
+        return { sessionName: whatsappSession.sessionName, id: whatsappSession.id };
       } catch (error) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -253,10 +282,13 @@ export const userRouter = createTRPCRouter({
           throw new Error('Failed to delete session');
         }
 
-        await db.whatsAppSession.delete({
+        await db.whatsAppSession.updateMany({
           where: {
             sessionName: input.sessionName,
             userId: ctx.session.user.id,
+          },
+          data: {
+            status: "DISCONNECTED"
           },
         });
 

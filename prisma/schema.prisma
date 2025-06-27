@@ -25,6 +25,11 @@ enum CampaignStatus {
   FAILED
 }
 
+enum WhatsAppSessionStatus {
+  DISCONNECTED
+  CONNECTED
+}
+
 model User {
   id        String   @id @default(cuid()) @map("_id")
   name      String
@@ -47,10 +52,12 @@ model WhatsAppSession {
   sessionName String   @unique
   phoneNumber String
   userId      String   @unique
+  status      WhatsAppSessionStatus @default(CONNECTED)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   WhatsAppGroups WhatsAppGroup[]
+  @@unique([userId, status])
 }
 
 model WhatsAppGroup {

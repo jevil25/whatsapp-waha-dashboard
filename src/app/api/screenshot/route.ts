@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const response = await fetch(screenshotUrl, {
       headers: {
         'accept': 'image/jpeg',
-        'X-Api-Key': env.WAHA_API_KEY as string
+        'X-Api-Key': env.WAHA_API_KEY,
       }
     });
 
