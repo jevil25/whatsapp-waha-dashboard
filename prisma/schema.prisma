@@ -74,10 +74,6 @@ model MessageCampaign {
   endDate      DateTime
   sendTimeUtc  DateTime
   template     String
-  memberName   String
-  memberNumber String
-  amount       Float
-  paymentInfo  String
   messages     Message[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
@@ -92,13 +88,11 @@ model MessageCampaign {
 model Message {
   id                String    @id @default(cuid()) @map("_id")
   sessionId         String
-  sender            String
   content           String
   scheduledAt       DateTime
   sentAt            DateTime?
   retryCount        Int       @default(0)
   maxRetries        Int       @default(3)
-  dynamicFields     Json?
   MessageCampaignId String
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt

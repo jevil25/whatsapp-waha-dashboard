@@ -173,6 +173,49 @@ export default function Home() {
     updateMessagePreview();
   }, [messageTemplate, startDate, endDate, updateMessagePreview]);
 
+  const [submitStatus, setSubmitStatus] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  const createCampaign = api.messageCampaign.createCampaign.useMutation({
+    onSuccess: () => {
+      setSubmitStatus({
+        type: 'success',
+        message: 'Message campaign created successfully!'
+      });
+      // Clear form
+      setStartDate('');
+      setEndDate('');
+      setMessageTime('12:00');
+      setMessageTemplate('');
+      setMessagePreview('');
+      // Optionally clear group selection if needed
+      // setSelectedGroupId(null);
+    },
+    onError: (error) => {
+      setSubmitStatus({
+        type: 'error',
+        message: error.message || 'Failed to create message campaign'
+      });
+    },
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedGroupId || !whatsAppSession?.sessionName) return;
+
+    setSubmitStatus(null);
+    createCampaign.mutate({
+      groupId: selectedGroupId,
+      sessionId: whatsAppSession.id,
+      startDate,
+      endDate,
+      messageTime,
+      messageTemplate,
+    });
+  };
+
   if (isPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f0f2f5]">
@@ -451,7 +494,18 @@ export default function Home() {
                         {selectedGroupId && (
                           <div className="mt-6 border-t pt-6">
                             <h4 className="text-lg font-medium mb-4">Schedule Messages</h4>
-                            <form className="space-y-4">
+                            
+                            {submitStatus && (
+                              <div className={`mb-4 p-4 rounded-lg ${
+                                submitStatus.type === 'success' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {submitStatus.message}
+                              </div>
+                            )}
+                            
+                            <form className="space-y-4" onSubmit={handleSubmit}>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                   <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
@@ -526,9 +580,10 @@ export default function Home() {
 
                               <button
                                 type="submit"
-                                className="w-full bg-[#008069] text-white px-4 py-2 rounded-lg hover:bg-[#006d5b] transition-colors"
+                                className="w-full bg-[#008069] text-white px-4 py-2 rounded-lg hover:bg-[#006d5b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={createCampaign.isPending || !startDate || !endDate || !messageTemplate}
                               >
-                                Schedule Messages
+                                {createCampaign.isPending ? 'Creating Campaign...' : 'Schedule Messages'}
                               </button>
                             </form>
                           </div>
