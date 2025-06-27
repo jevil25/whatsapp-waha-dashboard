@@ -3,7 +3,7 @@ import { api } from "~/trpc/react";
 
 interface GroupSelectorProps {
   sessionName: string;
-  onGroupSelect: (groupId: string | null) => void;
+  onGroupSelect: (groupId: string, groupName: string) => void;
   selectedGroupId: string | null;
 }
 
@@ -117,7 +117,7 @@ export function GroupSelector({ sessionName, onGroupSelect, selectedGroupId }: G
                       <div
                         key={`group-${index}`}
                         onClick={() => {
-                          onGroupSelect(group.groupId);
+                          onGroupSelect(group.groupId, group.groupName);
                           setIsOpen(false);
                         }}
                         className={`px-4 py-3 cursor-pointer flex items-center space-x-3 ${
