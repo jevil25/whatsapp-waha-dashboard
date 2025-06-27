@@ -190,8 +190,6 @@ export default function Home() {
       setMessageTime('12:00');
       setMessageTemplate('');
       setMessagePreview('');
-      // Optionally clear group selection if needed
-      // setSelectedGroupId(null);
     },
     onError: (error) => {
       setSubmitStatus({

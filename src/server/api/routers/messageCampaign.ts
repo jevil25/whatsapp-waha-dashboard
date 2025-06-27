@@ -1,82 +1,87 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { DateTime } from "luxon";
 
 export const messageCampaignRouter = createTRPCRouter({
-  createCampaign: protectedProcedure
-    .input(
-      z.object({
-        groupId: z.string(),
-        sessionId: z.string(),
-        startDate: z.string(),
-        endDate: z.string(),
-        messageTime: z.string().regex(/^\d{1,2}:\d{2}$/),
-        messageTemplate: z.string(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const { groupId, sessionId, startDate, endDate, messageTime, messageTemplate } = input;
+createCampaign: protectedProcedure
+  .input(
+    z.object({
+      groupId: z.string(),
+      sessionId: z.string(),
+      startDate: z.string(),
+      endDate: z.string(),
+      messageTime: z.string().regex(/^\d{1,2}:\d{2}$/),
+      messageTemplate: z.string(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    const { groupId, sessionId, startDate, endDate, messageTime, messageTemplate } = input;
 
-      const startDateTime = new Date(startDate);
-      const endDateTime = new Date(endDate);
-      const [hours, minutes] = messageTime.split(':').map(Number);
+    const timeRegex = new RegExp(/^(\d{1,2}):(\d{2})$/);
+    const timeMatch = timeRegex.exec(messageTime);
+    if (!timeMatch?.[1] || !timeMatch?.[2]) {
+      throw new Error("Invalid time format");
+    }
 
-      const sendTimeUtc = new Date();
-      if (typeof hours === "number" && !isNaN(hours)) {
-        sendTimeUtc.setUTCHours(hours - 5);
-      } else {
-        throw new Error("Invalid hours value in messageTime");
-      }
-      if (typeof minutes === "number" && !isNaN(minutes)) {
-        sendTimeUtc.setUTCMinutes(minutes);
-      } else {
-        throw new Error("Invalid minutes value in messageTime");
-      }
-      sendTimeUtc.setUTCSeconds(0);
-      sendTimeUtc.setUTCMilliseconds(0);
+    const hours = parseInt(timeMatch[1], 10);
+    const minutes = parseInt(timeMatch[2], 10);
 
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      throw new Error("Invalid time values");
+    }
 
-      const daysDiff = Math.ceil(
-        (endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60 * 60 * 24)
-      );
+    const startDt = DateTime.fromISO(startDate, { zone: "America/Chicago" })
+      .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
+    
+    const endDt = DateTime.fromISO(endDate, { zone: "America/Chicago" })
+      .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
 
-      const messages = [];
-      for (let i = 0; i <= daysDiff; i++) {
-        const scheduledDate = new Date(startDateTime);
-        scheduledDate.setDate(startDateTime.getDate() + i);
-        scheduledDate.setHours(hours);
-        scheduledDate.setMinutes(minutes);
-        scheduledDate.setSeconds(0);
-        scheduledDate.setMilliseconds(0);
+    if (!startDt.isValid || !endDt.isValid) {
+      throw new Error("Invalid date format");
+    }
 
-        // Calculate days left for this message
-        const daysLeft = daysDiff - i;
-        const messageContent = messageTemplate.replace(/{days_left}/g, daysLeft.toString());
+    if (endDt < startDt) {
+      throw new Error("End date must be after start date");
+    }
 
-        messages.push({
-          sessionId,
-          content: messageContent,
-          scheduledAt: scheduledDate,
-        });
-      }
+    const daysDiff = Math.ceil(endDt.diff(startDt, 'days').days);
 
-      const campaign = await ctx.db.messageCampaign.create({
-        data: {
-          groupId,
-          sessionId,
-          startDate: startDateTime,
-          endDate: endDateTime,
-          sendTimeUtc,
-          template: messageTemplate,
-          status: "SCHEDULED",
-          messages: {
-            create: messages,
-          },
-        },
+    const sendTimeUtc = startDt.toUTC().toJSDate();
+
+    const messages = [];
+    for (let i = 0; i <= daysDiff; i++) {
+      const messageDate = startDt.plus({ days: i });
+      
+      const scheduledDateUtc = messageDate.toUTC().toJSDate();
+
+      const daysLeft = daysDiff - i;
+      const messageContent = messageTemplate.replace(/{days_left}/g, daysLeft.toString());
+
+      messages.push({
+        sessionId,
+        content: messageContent,
+        scheduledAt: scheduledDateUtc,
       });
+    }
 
-      return {
-        success: true,
-        campaignId: campaign.id,
-      };
-    }),
+    const campaign = await ctx.db.messageCampaign.create({
+      data: {
+        groupId,
+        sessionId,
+        startDate: startDt.toJSDate(),
+        endDate: endDt.toJSDate(),
+        sendTimeUtc,
+        template: messageTemplate,
+        status: "SCHEDULED",
+        messages: {
+          create: messages,
+        },
+      },
+    });
+
+    return {
+      success: true,
+      campaignId: campaign.id,
+    };
+  }),
 });
