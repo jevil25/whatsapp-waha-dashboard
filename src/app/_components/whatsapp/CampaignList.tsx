@@ -80,7 +80,7 @@ export function CampaignList() {
               {nextScheduled && (
                 <div className="text-sm">
                   <span className="text-gray-600">
-                    Next message: {nextScheduled.toFormat('LLL dd, t ZZZZ')}
+                    Next message: {nextScheduled.setZone('America/Chicago').toFormat('LLL dd, t ZZZZ')}
                   </span>
                 </div>
               )}
