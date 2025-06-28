@@ -4,7 +4,8 @@ A powerful web application built with the T3 Stack to manage WhatsApp groups and
 
 ## ✨ Features
 
-- 🔐 **Secure Authentication** - User authentication and authorization
+- 🔐 **Secure Authentication** - User authentication and authorization with password reset
+- 📧 **Email Password Reset** - Secure password reset via email using Mailgun
 - 📊 **Campaign Management** - Create and manage message campaigns
 - ⏰ **Message Scheduling** - Schedule messages for specific dates and times
 - 🤖 **Automated Sending** - Background service that automatically sends scheduled messages
@@ -17,6 +18,7 @@ A powerful web application built with the T3 Stack to manage WhatsApp groups and
 - **Framework**: [Next.js 15](https://nextjs.org/)
 - **Authentication**: [Better Auth](https://www.better-auth.com/)
 - **Database**: [MongoDB](https://www.mongodb.com/) with [Prisma](https://prisma.io/)
+- **Email Service**: [Mailgun](https://www.mailgun.com/) for password reset emails
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
 - **Type Safety**: [TypeScript](https://www.typescriptlang.org/)
 - **API**: [tRPC](https://trpc.io/)
@@ -57,6 +59,11 @@ Before you begin, ensure you have the following installed:
    # Better Auth
    BETTER_AUTH_SECRET="your-better-auth-secret"
    BETTER_AUTH_URL="http://localhost:3000"
+   
+   # Mailgun (for password reset emails)
+   MAILGUN_API_KEY="your-mailgun-api-key"
+   MAILGUN_DOMAIN="your-mailgun-domain"
+   FROM_EMAIL="noreply@yourdomain.com"
    ```
 
 4. **Generate Prisma client**
@@ -240,6 +247,9 @@ pm2 restart whatsapp-scheduler
 | `BETTER_AUTH_URL` | Base URL for your application | ✅ |
 | `WAHA_API_KEY` | API key for WhatsApp API | ✅ |
 | `WAHA_API_URL` | Base URL for WAHA server | ✅ |
+| `MAILGUN_API_KEY` | Mailgun API key for sending emails | ✅ |
+| `MAILGUN_DOMAIN` | Mailgun domain for sending emails | ✅ |
+| `FROM_EMAIL` | Email address to send from | ✅ |
 
 ## 📝 Available Scripts
 

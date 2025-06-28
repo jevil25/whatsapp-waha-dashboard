@@ -58,6 +58,7 @@ model WhatsAppSession {
 
   WhatsAppGroups WhatsAppGroup[]
   @@unique([userId, status])
+  MessageCampaign MessageCampaign[]
 }
 
 model WhatsAppGroup {
@@ -89,6 +90,7 @@ model MessageCampaign {
   isCompleted  Boolean        @default(false)
   status       CampaignStatus @default(SCHEDULED)
 
+  session      WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   group WhatsAppGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 }
 

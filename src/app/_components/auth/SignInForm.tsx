@@ -66,6 +66,14 @@ export function SignInForm() {
           className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
           disabled={loading}
         />
+        <div className="mt-1 text-right">
+          <a
+            href="/auth/forgot-password"
+            className="text-sm text-blue-600 hover:text-blue-500"
+          >
+            Forgot your password?
+          </a>
+        </div>
       </div>
 
       {error && (

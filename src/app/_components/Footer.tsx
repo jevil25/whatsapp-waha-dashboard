@@ -1,4 +1,15 @@
+'use client';
+
+import { env } from "~/env.js";
+
 export default function Footer() {
+  // Check if footer should be shown (defaults to true if not set or set to anything other than "false")
+  const shouldShowFooter = env.NEXT_PUBLIC_SHOW_FOOTER !== "false";
+  
+  if (!shouldShowFooter) {
+    return null;
+  }
+
   return (
     <footer className="mt-auto border-t bg-gray-50 py-6">
       <div className="container mx-auto px-4">

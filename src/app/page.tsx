@@ -32,7 +32,13 @@ export default function Home() {
 
   const { data: whatsAppSession, isLoading: isWhatsAppLoading } = api.user.getWhatsAppSession.useQuery(undefined, {
     enabled: !!session?.user && session.user.role !== 'GUEST',
-    staleTime: Infinity,
+    staleTime: 5000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000,
+    retry: 3,
+    meta: {
+      priority: 'high'
+    }
   });
 
   const trpcUtils = api.useUtils();
@@ -123,6 +129,21 @@ export default function Home() {
     };
   }, [whatsAppSession?.sessionName, startPolling]);
 
+  // Prefetch groups when session becomes WORKING for highest priority
+  useEffect(() => {
+    if (sessionStatus === 'WORKING' && whatsAppSession?.sessionName) {
+      // Prefetch the first page of groups immediately
+      void trpcUtils.user.getWhatsAppGroups.prefetchInfinite({
+        sessionName: whatsAppSession.sessionName,
+        limit: 20,
+        search: '',
+      });
+      
+      // Immediately invalidate and refetch groups with highest priority
+      void trpcUtils.user.getWhatsAppGroups.invalidate();
+    }
+  }, [sessionStatus, whatsAppSession?.sessionName, trpcUtils.user.getWhatsAppGroups]);
+
   const handleConnect = () => {
     setError(null);
     initSession.mutate(undefined, {
@@ -159,7 +180,7 @@ export default function Home() {
     if (sessionStatus === 'SCAN_QR_CODE') {
       const interval = setInterval(() => {
         setScreenshotKey(prev => prev + 1);
-      }, 5000);
+      }, 15000);
       return () => clearInterval(interval);
     }
   }, [sessionStatus]);
@@ -455,16 +476,17 @@ export default function Home() {
                                 <div className="relative w-[520px] h-[400px] bg-white border-2 border-gray-300 rounded-lg p-4">
                                 {whatsAppSession?.sessionName ? (
                                   <Image 
-                                  key={screenshotKey}
-                                  src={`/api/screenshot?session=${whatsAppSession.sessionName}&_=${screenshotKey}`}
-                                  alt="WhatsApp Screenshot"
-                                  fill
-                                  priority
-                                  style={{ objectFit: 'contain' }}
-                                  className="rounded-lg"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                  }}
+                                    key={screenshotKey}
+                                    src={`/api/screenshot?session=${whatsAppSession.sessionName}&_=${screenshotKey}`}
+                                    alt="WhatsApp Screenshot"
+                                    fill
+                                    priority
+                                    style={{ objectFit: 'contain' }}
+                                    className="rounded-lg"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
+                                    unoptimized={true}
                                   />
                                 ) : (
                                   <div className="flex items-center justify-center h-full">

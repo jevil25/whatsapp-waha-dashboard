@@ -15,6 +15,11 @@ export const env = createEnv({
     BETTER_AUTH_SECRET: z.string(),
     BETTER_AUTH_URL: z.string().url(),
     WAHA_API_KEY: z.string(),
+    MAILGUN_API_KEY: z.string(),
+    MAILGUN_DOMAIN: z.string(),
+    FROM_EMAIL: z.string().email(),
+    ADMIN_EMAIL: z.string().email(),
+    ADMIN_PHONE_NUMBER: z.string().optional(),
   },
 
   /**
@@ -23,7 +28,7 @@ export const env = createEnv({
    * `NEXT_PUBLIC_`.
    */
   client: {
-    // NEXT_PUBLIC_CLIENTVAR: z.string(),
+    NEXT_PUBLIC_SHOW_FOOTER: z.string().default("false"),
   },
 
   /**
@@ -37,6 +42,12 @@ export const env = createEnv({
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
     WAHA_API_KEY: process.env.WAHA_API_KEY,
+    MAILGUN_API_KEY: process.env.MAILGUN_API_KEY,
+    MAILGUN_DOMAIN: process.env.MAILGUN_DOMAIN,
+    FROM_EMAIL: process.env.FROM_EMAIL,
+    ADMIN_EMAIL: process.env.ADMIN_EMAIL,
+    ADMIN_PHONE_NUMBER: process.env.ADMIN_PHONE_NUMBER,
+    NEXT_PUBLIC_SHOW_FOOTER: process.env.NEXT_PUBLIC_SHOW_FOOTER,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

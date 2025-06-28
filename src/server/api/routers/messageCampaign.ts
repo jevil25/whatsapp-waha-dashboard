@@ -58,7 +58,11 @@ export const messageCampaignRouter = createTRPCRouter({
 
         const daysLeft = daysDiff - i;
         if (daysLeft < 1) continue;
-        const messageContent = messageTemplate.replace(/{days_left}/g, daysLeft.toString());
+        const messageContent = 
+          `Campaign Start: ${startDt.toFormat('yyyy-LL-dd')}\n` +
+          `Campaign End: ${endDt.toFormat('yyyy-LL-dd')}\n` +
+          `Days Remaining: ${daysLeft}\n\n` +
+          messageTemplate.replace(/{days_left}/g, daysLeft.toString());
 
         messages.push({
           sessionId,
@@ -120,6 +124,9 @@ export const messageCampaignRouter = createTRPCRouter({
                         { scheduledAt: { lt: new Date() } },
                     ]
                 }
+            },
+            session: {
+              userId: ctx.session.user.id,
             }
           },
           select: {
@@ -176,6 +183,9 @@ export const messageCampaignRouter = createTRPCRouter({
                 some: {
                     scheduledAt: { gt: new Date() },
                 }
+            },
+            session: {
+              userId: ctx.session.user.id,
             }
           },
           select: {
@@ -228,7 +238,7 @@ export const messageCampaignRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       await ctx.db.messageCampaign.update({
-        where: { id: input.campaignId },
+        where: { id: input.campaignId, session: { userId: ctx.session.user.id } },
         data: { 
             isDeleted: true,
             messages: {

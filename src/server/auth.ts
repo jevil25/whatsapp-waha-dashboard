@@ -1,12 +1,17 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "@prisma/client";
+import { sendResetPasswordEmail } from "./mailgun";
 
 const prisma = new PrismaClient();
 
 export const auth = betterAuth({
     emailAndPassword: {  
-        enabled: true
+        enabled: true,
+        requireEmailVerification: false,
+        sendResetPassword: async ({user, url, token}, request) => {
+            await sendResetPasswordEmail(user.email, url, token);
+        },
     },
     database: prismaAdapter(prisma, {
         provider: "mongodb",

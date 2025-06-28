@@ -21,7 +21,15 @@ export function GroupSelector({ sessionName, onGroupSelect, selectedGroupId }: G
       search: searchQuery,
     }, {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      staleTime: 30000,
+      staleTime: 0,
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
+      retry: 3,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      networkMode: 'always',
+      meta: {
+        priority: 'high'
+      }
     });
 
   const allGroups = data?.pages.flatMap(page => page.items) ?? [];
@@ -48,14 +56,27 @@ export function GroupSelector({ sessionName, onGroupSelect, selectedGroupId }: G
     }
   };
 
-  // Debounce search query
+  // Debounce search query with higher priority for search
   useEffect(() => {
     const searchTimer = setTimeout(() => {
       void refetch();
-    }, 300);
+    }, searchQuery ? 150 : 300); // Faster search response, slower for empty queries
 
     return () => clearTimeout(searchTimer);
   }, [searchQuery, refetch]);
+
+  // Performance monitoring for groups API
+  const [loadTime, setLoadTime] = useState<number | null>(null);
+  
+  useEffect(() => {
+    if (isLoading) {
+      const startTime = performance.now();
+      return () => {
+        const endTime = performance.now();
+        setLoadTime(endTime - startTime);
+      };
+    }
+  }, [isLoading]);
 
   return (
     <div className="space-y-4">
@@ -96,6 +117,16 @@ export function GroupSelector({ sessionName, onGroupSelect, selectedGroupId }: G
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
+                  {isLoading && (
+                    <div className="absolute right-3 top-2.5">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#00a884]" />
+                    </div>
+                  )}
+                  {process.env.NODE_ENV === 'development' && loadTime && (
+                    <div className="absolute right-8 top-2.5 text-xs text-gray-500">
+                      {Math.round(loadTime)}ms
+                    </div>
+                  )}
                 </div>
               </div>
               <div 
@@ -110,6 +141,9 @@ export function GroupSelector({ sessionName, onGroupSelect, selectedGroupId }: G
                 ) : allGroups.length === 0 ? (
                   <div className="py-3 px-4 text-sm text-gray-500 text-center">
                     No groups found
+                    {process.env.NODE_ENV === 'development' && loadTime && (
+                      <div className="text-xs mt-1">Load time: {Math.round(loadTime)}ms</div>
+                    )}
                   </div>
                 ) : (
                   <>

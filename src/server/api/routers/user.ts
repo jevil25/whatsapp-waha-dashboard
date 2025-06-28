@@ -61,6 +61,14 @@ export const userRouter = createTRPCRouter({
         },
       });
 
+      const statusResponse = await fetch(`${WAHA_API_URL}/api/sessions/${session?.sessionName}`, {
+        headers: WAHA_HEADERS,
+      });
+      const data = await statusResponse.json();
+
+      if (data.status !== 'WORKING' && data.status !== 'SCAN_QR_CODE') {
+        return null;
+      }
       return session;
     }),
 
@@ -317,44 +325,68 @@ export const userRouter = createTRPCRouter({
         });
       }
 
-      const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/groups`, {
-        method: 'GET',
-        headers: WAHA_HEADERS,
-      });
+      try {
+        // Add timeout for highest priority response
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-      if (!response.ok) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch WhatsApp groups',
+        const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/groups`, {
+          method: 'GET',
+          headers: {
+            ...WAHA_HEADERS,
+            'Priority': 'u=1, i', // HTTP/2 priority header for urgent, incremental
+            'Cache-Control': 'no-cache', // Ensure fresh data
+          },
+          signal: controller.signal,
         });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to fetch WhatsApp groups: ${response.status} ${response.statusText}`,
+          });
+        }
+
+        const groups = await response.json() as { id: { _serialized: string }, name: string }[];
+        
+        // Optimize mapping and filtering for performance
+        let filteredGroups = groups
+          .map(group => ({
+            groupId: group.id._serialized,
+            groupName: group.name
+          }));
+
+        // Apply search filter first if provided (more efficient)
+        if (input.search) {
+          const searchLower = input.search.toLowerCase();
+          filteredGroups = filteredGroups.filter(
+            group => group.groupName.toLowerCase().includes(searchLower)
+          );
+        }
+
+        // Sort after filtering to reduce operations
+        filteredGroups.sort((a, b) => a.groupName.localeCompare(b.groupName));
+
+        // Apply pagination
+        const start = input.cursor ?? 0;
+        const items = filteredGroups.slice(start, start + input.limit);
+        const nextCursor = items.length === input.limit ? start + input.limit : undefined;
+
+        return {
+          items,
+          nextCursor,
+          total: filteredGroups.length, // Add total count for better UX
+        };
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new TRPCError({
+            code: 'TIMEOUT',
+            message: 'Request timeout while fetching WhatsApp groups',
+          });
+        }
+        throw error;
       }
-
-      const groups = await response.json() as { id: { _serialized: string }, name: string }[];
-      
-      // Map and filter groups
-      let filteredGroups = groups
-        .map(group => ({
-          groupId: group.id._serialized,
-          groupName: group.name
-        }))
-        .sort((a, b) => a.groupName.localeCompare(b.groupName));
-
-      // Apply search filter if provided
-      if (input.search) {
-        const searchLower = input.search.toLowerCase();
-        filteredGroups = filteredGroups.filter(
-          group => group.groupName.toLowerCase().includes(searchLower)
-        );
-      }
-
-      // Apply pagination
-      const start = input.cursor ?? 0;
-      const items = filteredGroups.slice(start, start + input.limit);
-      const nextCursor = items.length === input.limit ? start + input.limit : undefined;
-
-      return {
-        items,
-        nextCursor,
-      };
     }),
 });

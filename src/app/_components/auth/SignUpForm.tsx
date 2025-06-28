@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { authClient } from "~/client/auth";
 import { useRouter } from "next/navigation";
+import { api } from "~/trpc/react";
 
 export function SignUpForm() {
   const [name, setName] = useState("");
@@ -11,6 +12,8 @@ export function SignUpForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const router = useRouter();
+
+  const notifyAdmin = api.notification.notifyAdminOfUserRegistration.useMutation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +29,16 @@ export function SignUpForm() {
       if (error) {
         setError(error.message);
       } else {
+        try {
+          await notifyAdmin.mutateAsync({
+            userName: name,
+            userEmail: email,
+          });
+          console.log("Admin notification sent successfully");
+        } catch (notificationError) {
+          console.error("Failed to send admin notification:", notificationError);
+        }
+        
         router.push("/auth")
       }
     } catch (err) {
