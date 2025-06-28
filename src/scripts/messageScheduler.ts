@@ -42,7 +42,7 @@ async function checkAndSendScheduledMessages() {
                 // Send message using WhatsApp API
                 console.log(`Sending message to group ${message.MessageCampaign?.group.groupName}: ${message.content}`);
                 console.log(`Message ID: ${message.id}, Scheduled At: ${message.scheduledAt.toISOString()}`);
-                const response = await fetch('http://159.223.188.112:3000/api/sendText', {
+                const response = await fetch(`${process.env.WAHA_API_URL}/api/sendText`, {
                     method: 'POST',
                     headers: {
                         'accept': 'application/json',
