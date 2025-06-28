@@ -45,19 +45,19 @@ Before you begin, ensure you have the following installed:
    ```
 
 3. **Set up environment variables**
-Create a `.env` file in the root directory with the following content:
-```env
-# Database
-DATABASE_URL="mongodb+srv://username:password@cluster.mongodb.net/whatsapp-manager"
+   Create a `.env` file in the root directory with the following content:
+   ```env
+   # Database
+   DATABASE_URL="mongodb+srv://username:password@cluster.mongodb.net/whatsapp-manager" 
 
-# WhatsApp API
-WAHA_API_URL="http://localhost:3000"
-WAHA_API_KEY="your-waha-api-key"
-
-# Better Auth
-BETTER_AUTH_SECRET="your-better-auth-secret"
-BETTER_AUTH_URL="http://localhost:3000"
-```
+   # WhatsApp API
+   WAHA_API_URL="http://localhost:3000"
+   WAHA_API_KEY="your-waha-api-key" 
+   
+   # Better Auth
+   BETTER_AUTH_SECRET="your-better-auth-secret"
+   BETTER_AUTH_URL="http://localhost:3000"
+   ```
 
 4. **Generate Prisma client**
    ```bash
@@ -93,7 +93,12 @@ Once connected, you can see your WhatsApp session status and manage your campaig
 
 ![Connected Dashboard](screenshots/connected%20and%20campaign%20view.png)
 
-### 📝 Schedule Messages
+### � WhatsApp Groups View
+View and manage all your connected WhatsApp groups in one place.
+
+![WhatsApp Groups View](screenshots/whatsapps_group_view.png)
+
+### �📝 Schedule Messages
 Create and schedule messages for your WhatsApp groups with an easy-to-use form.
 
 ![Schedule Message Form](screenshots/schedule%20message%20form.png)
