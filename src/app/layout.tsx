@@ -4,6 +4,7 @@ import { type Metadata } from "next";
 import { Geist } from "next/font/google";
 
 import { TRPCReactProvider } from "~/trpc/react";
+import Footer from "./_components/Footer";
 
 export const metadata: Metadata = {
   title: "WhatsApp Group Manager",
@@ -21,8 +22,11 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${geist.variable}`}>
-      <body>
-        <TRPCReactProvider>{children}</TRPCReactProvider>
+      <body className="flex min-h-screen flex-col">
+        <TRPCReactProvider>
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </TRPCReactProvider>
       </body>
     </html>
   );
