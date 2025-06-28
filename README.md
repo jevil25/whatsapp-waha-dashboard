@@ -300,9 +300,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Aaron Nazareth**
 
-- 🐙 GitHub: [@aaronnazareth](https://github.com/jevil25)
-- 📺 YouTube: [@aaronnazareth](https://youtube.com/@JevilCodes)
-- 🐦 X: [@aaronnazareth](https://x.com/jevil257)
+- 🐙 GitHub: [@jevil25](https://github.com/jevil25)
+- 📺 YouTube: [@JevilCodes](https://youtube.com/@JevilCodes)
+- 🐦 X: [@jevil257](https://x.com/jevil257)
 
 ---
 
