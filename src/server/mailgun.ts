@@ -1,13 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import Mailgun from "mailgun.js";
 import FormData from "form-data";
 import { env } from "~/env.js";
 import { db } from "~/server/db";
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
 const mailgun = new Mailgun(FormData);
 const mg = mailgun.client({
   username: "api",
-  key: env.MAILGUN_API_KEY as string,
+  key: env.MAILGUN_API_KEY,
 });
 
 export async function sendResetPasswordEmail(email: string, url: string, resetToken: string) {
@@ -17,7 +18,7 @@ export async function sendResetPasswordEmail(email: string, url: string, resetTo
   console.log("resetToken", resetToken);
   
   const emailData = {
-    from: env.FROM_EMAIL as string,
+    from: env.FROM_EMAIL,
     to: email,
     subject: "Reset Your Password - WhatsApp Group Manager",
     html: `
@@ -152,7 +153,7 @@ export async function sendResetPasswordEmail(email: string, url: string, resetTo
   };
 
   try {
-    const response = await mg.messages.create(env.MAILGUN_DOMAIN as string, emailData);
+    const response = await mg.messages.create(env.MAILGUN_DOMAIN, emailData);
     console.log("Reset password email sent successfully:", response);
     return { success: true, messageId: response.id };
   } catch (error) {
@@ -163,7 +164,7 @@ export async function sendResetPasswordEmail(email: string, url: string, resetTo
 
 export async function sendPasswordChangedNotification(email: string) {
   const emailData = {
-    from: env.FROM_EMAIL as string,
+    from: env.FROM_EMAIL,
     to: email,
     subject: "Password Changed Successfully - WhatsApp Group Manager",
     html: `
@@ -276,7 +277,7 @@ export async function sendPasswordChangedNotification(email: string) {
   };
 
   try {
-    const response = await mg.messages.create(env.MAILGUN_DOMAIN as string, emailData);
+    const response = await mg.messages.create(env.MAILGUN_DOMAIN, emailData);
     console.log("Password changed notification sent successfully:", response);
     return { success: true, messageId: response.id };
   } catch (error) {
@@ -287,8 +288,8 @@ export async function sendPasswordChangedNotification(email: string) {
 
 export async function sendUserRegistrationNotificationToAdmin(userName: string, userEmail: string) {
   const emailData = {
-    from: env.FROM_EMAIL as string,
-    to: env.ADMIN_EMAIL as string,
+    from: env.FROM_EMAIL,
+    to: env.ADMIN_EMAIL,
     subject: "New User Registration - Approval Required",
     html: `
       <!DOCTYPE html>
@@ -420,7 +421,7 @@ export async function sendUserRegistrationNotificationToAdmin(userName: string, 
   };
 
   try {
-    const response = await mg.messages.create(env.MAILGUN_DOMAIN as string, emailData);
+    const response = await mg.messages.create(env.MAILGUN_DOMAIN, emailData);
     console.log("User registration notification sent successfully:", response);
     return { success: true, messageId: response.id };
   } catch (error) {
