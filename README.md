@@ -327,7 +327,6 @@ pnpm preview               # Build and start in preview mode
 pnpm db:push               # Push schema to database
 pnpm db:studio             # Open Prisma Studio
 pnpm prisma:generate       # Generate Prisma client
-pnpm postinstall           # Auto-run Prisma generate after install
 
 # Message Scheduler
 pnpm scheduler:start       # Start message scheduler locally
