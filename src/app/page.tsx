@@ -29,6 +29,8 @@ export default function Home() {
   const [messageTime, setMessageTime] = useState('12:00');
   const [messageTemplate, setMessageTemplate] = useState('');
   const [messagePreview, setMessagePreview] = useState('');
+  const [campaignTitle, setCampaignTitle] = useState('');
+  const [targetAmount, setTargetAmount] = useState('');
 
   const { data: whatsAppSession, isLoading: isWhatsAppLoading } = api.user.getWhatsAppSession.useQuery(undefined, {
     enabled: !!session?.user && session.user.role !== 'GUEST',
@@ -196,17 +198,32 @@ export default function Home() {
     const today = new Date();
     const daysLeft = Math.ceil((endDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     
-    let preview = messageTemplate;
-    // Replace dynamic placeholders
-    preview = preview.replace(/{days_left}/g, daysLeft.toString());
+    // Build message preview with optional fields
+    let preview = '';
+    
+    // Add title if provided
+    if (campaignTitle.trim()) {
+      preview += `Campaign Title: ${campaignTitle}\n`;
+    }
+    
+    preview += `Campaign Start Date: ${startDate}\n`;
+    preview += `Campaign End Date: ${endDate}\n`;
+    
+    // Add target amount if provided
+    if (targetAmount.trim()) {
+      preview += `Contribution Target Amount: ${targetAmount}\n`;
+    }
+    
+    preview += `Days Remaining: ${daysLeft}\n\n`;
+    preview += messageTemplate.replace(/{days_left}/g, daysLeft.toString());
     
     setMessagePreview(preview);
-  }, [messageTemplate, startDate, endDate]);
+  }, [messageTemplate, startDate, endDate, campaignTitle, targetAmount]);
 
   // Update preview when dependencies change
   useEffect(() => {
     updateMessagePreview();
-  }, [messageTemplate, startDate, endDate, updateMessagePreview]);
+  }, [messageTemplate, startDate, endDate, campaignTitle, targetAmount, updateMessagePreview]);
 
   const [submitStatus, setSubmitStatus] = useState<{
     type: 'success' | 'error';
@@ -225,6 +242,8 @@ export default function Home() {
       setMessageTime('12:00');
       setMessageTemplate('');
       setMessagePreview('');
+      setCampaignTitle('');
+      setTargetAmount('');
       // refetch campaigns
       void trpcUtils.messageCampaign.getCampaigns.invalidate();
     },
@@ -245,6 +264,8 @@ export default function Home() {
       groupId: selectedGroupId,
       groupName: selectedGroupName,
       sessionId: whatsAppSession.id,
+      title: campaignTitle.trim() || undefined,
+      targetAmount: targetAmount.trim() || undefined,
       startDate,
       endDate,
       messageTime,
@@ -623,6 +644,38 @@ export default function Home() {
                                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
                                       min={startDate || new Date().toISOString().split('T')[0]}
                                       required
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <label htmlFor="campaignTitle" className="block text-sm font-medium text-gray-700 mb-1">
+                                      Campaign Title
+                                      <span className="text-xs text-gray-500 ml-2">(Optional)</span>
+                                    </label>
+                                    <input
+                                      type="text"
+                                      id="campaignTitle"
+                                      value={campaignTitle}
+                                      onChange={(e) => setCampaignTitle(e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
+                                      placeholder="e.g., Support for the Family of Opuk Ondiek"
+                                    />
+                                  </div>
+                                  
+                                  <div>
+                                    <label htmlFor="targetAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                                      Contribution Target Amount
+                                      <span className="text-xs text-gray-500 ml-2">(Optional)</span>
+                                    </label>
+                                    <input
+                                      type="text"
+                                      id="targetAmount"
+                                      value={targetAmount}
+                                      onChange={(e) => setTargetAmount(e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
+                                      placeholder="e.g., $10,000"
                                     />
                                   </div>
                                 </div>

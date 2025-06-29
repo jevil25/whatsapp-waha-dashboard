@@ -53,12 +53,22 @@ export function CampaignList() {
             <div key={campaign.id} className="bg-white border rounded-lg p-4 space-y-3">
               <div className="flex items-start justify-between">
                 <div>
-                  <h4 className="font-medium text-gray-900">
+                  {campaign.title && (
+                    <h4 className="font-medium text-gray-900 mb-1">
+                      {campaign.title}
+                    </h4>
+                  )}
+                  <h5 className={`${campaign.title ? 'text-sm text-gray-600' : 'font-medium text-gray-900'}`}>
                     {campaign.group.groupName}
-                  </h4>
+                  </h5>
                   <p className="text-sm text-gray-500">
                     {startDate.toFormat('LLL dd')} - {endDate.toFormat('LLL dd, yyyy')}
                   </p>
+                  {campaign.targetAmount && (
+                    <p className="text-sm text-blue-600 font-medium">
+                      Target: {campaign.targetAmount}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => setCampaignToDelete(campaign.id)}

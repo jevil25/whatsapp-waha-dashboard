@@ -78,6 +78,8 @@ model MessageCampaign {
   id           String         @id @default(cuid()) @map("_id")
   sessionId    String
   groupId      String
+  title        String?        // Optional campaign title
+  targetAmount String?        // Optional contribution target amount
   startDate    DateTime
   endDate      DateTime
   sendTimeUtc  DateTime

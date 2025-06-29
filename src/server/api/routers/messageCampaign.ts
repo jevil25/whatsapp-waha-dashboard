@@ -10,6 +10,8 @@ export const messageCampaignRouter = createTRPCRouter({
         groupId: z.string(),
         groupName: z.string(),
         sessionId: z.string(),
+        title: z.string().optional(), // Optional campaign title
+        targetAmount: z.string().optional(), // Optional contribution target amount
         startDate: z.string(),
         endDate: z.string(),
         messageTime: z.string().regex(/^\d{1,2}:\d{2}$/),
@@ -17,7 +19,7 @@ export const messageCampaignRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { groupId, sessionId, startDate, endDate, messageTime, messageTemplate } = input;
+      const { groupId, sessionId, startDate, endDate, messageTime, messageTemplate, title, targetAmount } = input;
 
       const timeRegex = new RegExp(/^(\d{1,2}):(\d{2})$/);
       const timeMatch = timeRegex.exec(messageTime);
@@ -58,11 +60,24 @@ export const messageCampaignRouter = createTRPCRouter({
 
         const daysLeft = daysDiff - i;
         if (daysLeft < 1) continue;
-        const messageContent = 
-          `Campaign Start: ${startDt.toFormat('yyyy-LL-dd')}\n` +
-          `Campaign End: ${endDt.toFormat('yyyy-LL-dd')}\n` +
-          `Days Remaining: ${daysLeft}\n\n` +
-          messageTemplate.replace(/{days_left}/g, daysLeft.toString());
+        
+        // Build message content with optional fields
+        let messageContent = '';
+        
+        // Add title if provided
+        if (title) {
+          messageContent += `Campaign Title: ${title}\n`;
+        }
+        
+        messageContent += `Campaign Start Date: ${startDt.toFormat('yyyy-LL-dd')}\n`;
+        messageContent += `Campaign End Date: ${endDt.toFormat('yyyy-LL-dd')}\n`;
+        
+        if (targetAmount) {
+          messageContent += `Contribution Target Amount: ${targetAmount}\n`;
+        }
+        
+        messageContent += `Days Remaining: ${daysLeft}\n\n`;
+        messageContent += messageTemplate.replace(/{days_left}/g, daysLeft.toString());
 
         messages.push({
           sessionId,
@@ -94,6 +109,8 @@ export const messageCampaignRouter = createTRPCRouter({
         data: {
           groupId: group.id,
           sessionId,
+          title,
+          targetAmount,
           startDate: startDt.toJSDate(),
           endDate: endDt.toJSDate(),
           sendTimeUtc,
@@ -131,6 +148,8 @@ export const messageCampaignRouter = createTRPCRouter({
           },
           select: {
             id: true,
+            title: true,
+            targetAmount: true,
             startDate: true,
             endDate: true,
             sendTimeUtc: true,
@@ -190,6 +209,8 @@ export const messageCampaignRouter = createTRPCRouter({
           },
           select: {
             id: true,
+            title: true,
+            targetAmount: true,
             startDate: true,
             endDate: true,
             sendTimeUtc: true,
