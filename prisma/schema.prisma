@@ -83,6 +83,7 @@ model MessageCampaign {
   startDate    DateTime
   endDate      DateTime
   sendTimeUtc  DateTime
+  timeZone     String         @default("America/Chicago") // Time zone for scheduling
   template     String
   messages     Message[]
   createdAt    DateTime       @default(now())

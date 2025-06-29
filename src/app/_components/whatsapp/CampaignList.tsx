@@ -8,7 +8,36 @@ import { DateTime } from "luxon";
 import { useState } from "react";
 import ConfirmationModal from "../ConfirmationModal"
 
-export function CampaignList() {
+interface Campaign {
+  id: string;
+  title?: string | null;
+  targetAmount?: string | null;
+  startDate: Date;
+  endDate: Date;
+  sendTimeUtc: string | Date;
+  template: string;
+  status: string;
+  createdAt: Date;
+  group: {
+    id: string;
+    groupName: string;
+    groupId: string;
+  };
+  messages: Array<{
+    id: string;
+    content: string;
+    scheduledAt: Date;
+    sentAt?: Date | null;
+    isSent: boolean;
+    isFailed: boolean;
+  }>;
+}
+
+interface CampaignListProps {
+  onEditCampaign?: (campaign: Campaign) => void;
+}
+
+export function CampaignList({ onEditCampaign }: CampaignListProps) {
   const [campaignToDelete, setCampaignToDelete] = useState<string | null>(null);
   const { data: campaigns, isLoading } = api.messageCampaign.getCampaigns.useQuery();
 
@@ -70,13 +99,21 @@ export function CampaignList() {
                     </p>
                   )}
                 </div>
-                <button
-                  onClick={() => setCampaignToDelete(campaign.id)}
-                  className="text-red-600 hover:text-red-800 text-sm"
-                  disabled={deleteCampaign.isPending}
-                >
-                  Delete
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onEditCampaign?.(campaign)}
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => setCampaignToDelete(campaign.id)}
+                    className="text-red-600 hover:text-red-800 text-sm"
+                    disabled={deleteCampaign.isPending}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -93,9 +130,12 @@ export function CampaignList() {
               </div>
 
               {nextScheduled && (
-                <div className="text-sm">
+                <div className="text-sm flex flex-col gap-1 text-gray-600 whitespace-pre-wrap border-t pt-2 mt-2">
                   <span className="text-gray-600">
-                    Next message: {nextScheduled.setZone('America/Chicago').toFormat('LLL dd, t ZZZZ')}
+                    Next message: {nextScheduled.toFormat('LLL dd, t ZZZZ')}
+                  </span>
+                  <span className="text-gray-600">
+                    Scheduled time zone time: {nextScheduled.setZone(campaign.timeZone).toFormat('LLL dd, t ZZZZ')}
                   </span>
                 </div>
               )}

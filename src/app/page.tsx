@@ -27,10 +27,34 @@ export default function Home() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [messageTime, setMessageTime] = useState('12:00');
+  const [timeZone, setTimeZone] = useState('America/Chicago'); // Default to Central Time
   const [messageTemplate, setMessageTemplate] = useState('');
   const [messagePreview, setMessagePreview] = useState('');
   const [campaignTitle, setCampaignTitle] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
+
+  // Common time zones for the selector
+  const timeZones = [
+    { value: 'America/New_York', label: 'Eastern Time (ET)' },
+    { value: 'America/Chicago', label: 'Central Time (CT)' },
+    { value: 'America/Denver', label: 'Mountain Time (MT)' },
+    { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+    { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+    { value: 'Pacific/Honolulu', label: 'Hawaii Time (HST)' },
+    { value: 'Europe/London', label: 'GMT (London)' },
+    { value: 'Europe/Paris', label: 'CET (Paris)' },
+    { value: 'Europe/Berlin', label: 'CET (Berlin)' },
+    { value: 'Asia/Tokyo', label: 'JST (Tokyo)' },
+    { value: 'Asia/Shanghai', label: 'CST (Shanghai)' },
+    { value: 'Asia/Kolkata', label: 'IST (Mumbai)' },
+    { value: 'Australia/Sydney', label: 'AEDT (Sydney)' },
+    { value: 'UTC', label: 'UTC' },
+  ];
+
+  // State for editing campaigns
+  /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any */
+  const [editingCampaign, setEditingCampaign] = useState<any>(null);
+  /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any */
 
   const { data: whatsAppSession, isLoading: isWhatsAppLoading } = api.user.getWhatsAppSession.useQuery(undefined, {
     enabled: !!session?.user && session.user.role !== 'GUEST',
@@ -255,22 +279,97 @@ export default function Home() {
     },
   });
 
+  const updateCampaign = api.messageCampaign.updateCampaign.useMutation({
+    onSuccess: () => {
+      setSubmitStatus({
+        type: 'success',
+        message: 'Message campaign updated successfully!'
+      });
+      clearEditMode();
+      // refetch campaigns
+      void trpcUtils.messageCampaign.getCampaigns.invalidate();
+    },
+    onError: (error) => {
+      setSubmitStatus({
+        type: 'error',
+        message: error.message || 'Failed to update message campaign'
+      });
+    },
+  });
+
+  // Handle campaign edit
+  /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/prefer-nullish-coalescing */
+  const handleEditCampaign = (campaign: any) => {
+    setEditingCampaign(campaign);
+    // Populate form with existing data
+    setCampaignTitle(campaign.title || '');
+    setTargetAmount(campaign.targetAmount || '');
+    setStartDate(new Date(campaign.startDate).toISOString().split('T')[0] ?? '');
+    setEndDate(new Date(campaign.endDate).toISOString().split('T')[0] ?? '');
+    
+    // Convert sendTimeUtc back to local time format
+    const timeStr = typeof campaign.sendTimeUtc === 'string' ? campaign.sendTimeUtc : campaign.sendTimeUtc.toTimeString();
+    const timeMatch = timeStr.match(/(\d{2}):(\d{2})/);
+    if (timeMatch) {
+      setMessageTime(`${timeMatch[1]}:${timeMatch[2]}`);
+    }
+    
+    // Set time zone (default to Central Time for existing campaigns that don't have it stored)
+    setTimeZone(campaign.timeZone || 'America/Chicago');
+    
+    setMessageTemplate(campaign.template);
+  };
+  /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/prefer-nullish-coalescing */
+
+  // Function to clear edit mode
+  const clearEditMode = () => {
+    setEditingCampaign(null);
+    setStartDate('');
+    setEndDate('');
+    setMessageTime('12:00');
+    setTimeZone('America/Chicago');
+    setMessageTemplate('');
+    setMessagePreview('');
+    setCampaignTitle('');
+    setTargetAmount('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedGroupId || !whatsAppSession?.sessionName || !selectedGroupName) return;
+    if (!whatsAppSession?.sessionName) return;
+    if (!editingCampaign && (!selectedGroupId || !selectedGroupName)) return;
 
     setSubmitStatus(null);
-    createCampaign.mutate({
-      groupId: selectedGroupId,
-      groupName: selectedGroupName,
-      sessionId: whatsAppSession.id,
-      title: campaignTitle.trim() || undefined,
-      targetAmount: targetAmount.trim() || undefined,
-      startDate,
-      endDate,
-      messageTime,
-      messageTemplate,
-    });
+    if (editingCampaign) {
+      // Update existing campaign
+      updateCampaign.mutate({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+        campaignId: editingCampaign.id,
+        title: campaignTitle.trim() || undefined,
+        targetAmount: targetAmount.trim() || undefined,
+        startDate,
+        endDate,
+        messageTime,
+        timeZone,
+        messageTemplate,
+      });
+    } else {
+      // Create new campaign
+      if (!selectedGroupId || !selectedGroupName) return;
+      
+      createCampaign.mutate({
+        groupId: selectedGroupId,
+        groupName: selectedGroupName,
+        sessionId: whatsAppSession.id,
+        title: campaignTitle.trim() || undefined,
+        targetAmount: targetAmount.trim() || undefined,
+        startDate,
+        endDate,
+        messageTime,
+        timeZone,
+        messageTemplate,
+      });
+    }
   };
 
   if (isPending) {
@@ -592,18 +691,44 @@ export default function Home() {
                                     View Completed Campaigns
                                   </button>
                                 </div>
-                                <CampaignList />
+                                <CampaignList onEditCampaign={handleEditCampaign} />
                           </div>
                           <h3 className="text-lg font-medium mb-4 mt-8">WhatsApp Groups</h3>
-                          <GroupSelector
-                            sessionName={whatsAppSession.sessionName}
-                            selectedGroupId={selectedGroupId}
-                            onGroupSelect={handleGroupSelect}
-                          />
+                          {!editingCampaign && (
+                            <GroupSelector
+                              sessionName={whatsAppSession.sessionName}
+                              selectedGroupId={selectedGroupId}
+                              onGroupSelect={handleGroupSelect}
+                            />
+                          )}
                           
-                          {selectedGroupId && (
+                          {editingCampaign && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                              <p className="text-sm text-blue-800">
+                                {/* eslint-disable-next-line @typescript-eslint/no-unsafe-member-access */}
+                                <strong>Editing campaign for group:</strong> {editingCampaign.group?.groupName}
+                              </p>
+                              <p className="text-xs text-blue-600 mt-1">
+                                Note: The group cannot be changed when editing a campaign
+                              </p>
+                            </div>
+                          )}
+                          
+                          {(selectedGroupId ?? editingCampaign) && (
                             <div className="mt-6 border-t pt-6">
-                              <h4 className="text-lg font-medium mb-4">Schedule Messages</h4>
+                              <div className="flex justify-between items-center mb-4">
+                                <h4 className="text-lg font-medium">
+                                  {editingCampaign ? 'Edit Campaign' : 'Schedule Messages'}
+                                </h4>
+                                {editingCampaign && (
+                                  <button
+                                    onClick={clearEditMode}
+                                    className="text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-200 transition-colors"
+                                  >
+                                    Cancel Edit
+                                  </button>
+                                )}
+                              </div>
                               
                               {submitStatus && (
                                 <div className={`mb-4 p-4 rounded-lg ${
@@ -680,18 +805,39 @@ export default function Home() {
                                   </div>
                                 </div>
 
-                                <div>
-                                  <label htmlFor="messageTime" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Time to Send (Central Time)
-                                  </label>
-                                  <input
-                                    type="time"
-                                    id="messageTime"
-                                    value={messageTime}
-                                    onChange={(e) => setMessageTime(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
-                                    required
-                                  />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <label htmlFor="messageTime" className="block text-sm font-medium text-gray-700 mb-1">
+                                      Time to Send
+                                    </label>
+                                    <input
+                                      type="time"
+                                      id="messageTime"
+                                      value={messageTime}
+                                      onChange={(e) => setMessageTime(e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
+                                      required
+                                    />
+                                  </div>
+                                  
+                                  <div>
+                                    <label htmlFor="timeZone" className="block text-sm font-medium text-gray-700 mb-1">
+                                      Time Zone
+                                    </label>
+                                    <select
+                                      id="timeZone"
+                                      value={timeZone}
+                                      onChange={(e) => setTimeZone(e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
+                                      required
+                                    >
+                                      {timeZones.map((tz) => (
+                                        <option key={tz.value} value={tz.value}>
+                                          {tz.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
                                 </div>
 
                                 <div>
@@ -723,9 +869,16 @@ export default function Home() {
                                 <button
                                   type="submit"
                                   className="w-full bg-[#008069] text-white px-4 py-2 rounded-lg hover:bg-[#006d5b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                  disabled={createCampaign.isPending || !startDate || !endDate || !messageTemplate}
+                                  disabled={
+                                    (editingCampaign ? updateCampaign.isPending : createCampaign.isPending) || 
+                                    !startDate || !endDate || !messageTemplate || 
+                                    (!editingCampaign && (!selectedGroupId || !selectedGroupName))
+                                  }
                                 >
-                                  {createCampaign.isPending ? 'Creating Campaign...' : 'Schedule Messages'}
+                                  {editingCampaign 
+                                    ? (updateCampaign.isPending ? 'Updating Campaign...' : 'Update Campaign')
+                                    : (createCampaign.isPending ? 'Creating Campaign...' : 'Schedule Messages')
+                                  }
                                 </button>
                               </form>
                             </div>

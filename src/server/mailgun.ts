@@ -11,11 +11,8 @@ const mg = mailgun.client({
   key: env.MAILGUN_API_KEY,
 });
 
-export async function sendResetPasswordEmail(email: string, url: string, resetToken: string) {
+export async function sendResetPasswordEmail(email: string, url: string) {
   const resetUrl = url;
-
-  console.log("resetUrl", resetUrl);
-  console.log("resetToken", resetToken);
   
   const emailData = {
     from: env.FROM_EMAIL,

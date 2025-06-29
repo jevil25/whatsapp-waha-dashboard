@@ -9,8 +9,8 @@ export const auth = betterAuth({
     emailAndPassword: {  
         enabled: true,
         requireEmailVerification: false,
-        sendResetPassword: async ({user, url, token}) => {
-            await sendResetPasswordEmail(user.email, url, token);
+        sendResetPassword: async ({user, url}) => {
+            await sendResetPasswordEmail(user.email, url);
         },
     },
     database: prismaAdapter(prisma, {
