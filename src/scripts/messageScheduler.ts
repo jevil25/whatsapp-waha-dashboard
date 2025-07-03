@@ -10,6 +10,7 @@ async function checkAndSendScheduledMessages() {
             where: {
                 isSent: false,
                 isDeleted: false,
+                isPicked: false,
             },
             include: {
                 MessageCampaign: {
@@ -17,6 +18,17 @@ async function checkAndSendScheduledMessages() {
                         group: true,
                     },
                 },
+            }
+        });
+
+        await prisma.message.updateMany({
+            where: {
+                id: {
+                    in: pendingMessages.map(message => message.id)
+                },
+            },
+            data: {
+                isPicked: true,
             }
         });
 
