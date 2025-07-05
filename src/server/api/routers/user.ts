@@ -312,7 +312,7 @@ export const userRouter = createTRPCRouter({
   getWhatsAppGroups: userProcedure
     .input(z.object({
       sessionName: z.string(),
-      limit: z.number().min(1).max(10).default(10),
+      limit: z.number().min(1).default(10),
       cursor: z.number().default(0),
       search: z.string().optional(),
     }))
@@ -327,7 +327,7 @@ export const userRouter = createTRPCRouter({
       try {
         // If no search, fetch once and return paginated result
         if (!input.search) {
-          const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/groups?limit=${input.limit}&offset=${input.cursor ?? 0}`, {
+          const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/groups?limit=10&offset=${input.cursor ?? 0}`, {
             method: 'GET',
             headers: {
               ...WAHA_HEADERS,
