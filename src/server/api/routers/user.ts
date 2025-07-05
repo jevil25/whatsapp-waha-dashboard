@@ -309,11 +309,10 @@ export const userRouter = createTRPCRouter({
         });
       }
     }),
-
   getWhatsAppGroups: userProcedure
     .input(z.object({
       sessionName: z.string(),
-      limit: z.number().min(1).max(50).default(20),
+      limit: z.number().min(1).max(10).default(10),
       cursor: z.number().default(0),
       search: z.string().optional(),
     }))
@@ -326,58 +325,94 @@ export const userRouter = createTRPCRouter({
       }
 
       try {
-        // Add timeout for highest priority response
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-        const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/groups?limit=${input.limit}&offset=${input.cursor ?? 0} : ''}`, {
-          method: 'GET',
-          headers: {
-            ...WAHA_HEADERS,
-            'Priority': 'u=1, i', // HTTP/2 priority header for urgent, incremental
-            'Cache-Control': 'no-cache', // Ensure fresh data
-          },
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: `Failed to fetch WhatsApp groups: ${response.status} ${response.statusText}`,
+        // If no search, fetch once and return paginated result
+        if (!input.search) {
+          const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/groups?limit=${input.limit}&offset=${input.cursor ?? 0}`, {
+            method: 'GET',
+            headers: {
+              ...WAHA_HEADERS,
+              'Priority': 'u=1, i',
+              'Cache-Control': 'no-cache',
+            },
           });
-        }
 
-        const groups = await response.json() as { id: { _serialized: string }, name: string }[];
-        
-        // Optimize mapping and filtering for performance
-        let filteredGroups = groups
-          .map(group => ({
+          if (!response.ok) {
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: `Failed to fetch WhatsApp groups: ${response.status} ${response.statusText}`,
+            });
+          }
+
+          const groups = await response.json() as { id: { _serialized: string }, name: string }[];
+          const items = groups.map(group => ({
             groupId: group.id._serialized,
             groupName: group.name
           }));
 
-        // Apply search filter first if provided (more efficient)
-        if (input.search) {
-          const searchLower = input.search.toLowerCase();
-          filteredGroups = filteredGroups.filter(
-            group => group.groupName.toLowerCase().includes(searchLower)
-          );
+          const nextCursor = items.length === input.limit ? (input.cursor ?? 0) + input.limit : undefined;
+
+          return {
+            items,
+            nextCursor,
+            total: undefined, // Not available without fetching all
+          };
         }
 
-        // Sort after filtering to reduce operations
-        filteredGroups.sort((a, b) => a.groupName.localeCompare(b.groupName));
+        // If search is present, keep fetching in batches of 10 until enough matches or no more data
+        const searchLower = input.search.toLowerCase();
+        let found: { groupId: string, groupName: string }[] = [];
+        let offset = input.cursor ?? 0;
+        let fetched = 0;
+        let done = false;
 
-        // Apply pagination
-        const start = input.cursor ?? 0;
-        const items = filteredGroups.slice(start, start + input.limit);
-        const nextCursor = items.length === input.limit ? start + input.limit : undefined;
+        while (!done && found.length < input.limit) {
+          const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/groups?limit=10&offset=${offset}`, {
+            method: 'GET',
+            headers: {
+              ...WAHA_HEADERS,
+              'Priority': 'u=1, i',
+              'Cache-Control': 'no-cache',
+            },
+          });
+
+          if (!response.ok) {
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: `Failed to fetch WhatsApp groups: ${response.status} ${response.statusText}`,
+            });
+          }
+
+          const groups = await response.json() as { id: { _serialized: string }, name: string }[];
+          if (groups.length === 0) {
+            done = true;
+            break;
+          }
+
+          const filtered = groups
+            .map(group => ({
+              groupId: group.id._serialized,
+              groupName: group.name
+            }))
+            .filter(group => group.groupName.toLowerCase().includes(searchLower));
+
+          found = found.concat(filtered);
+          offset += groups.length;
+          fetched += groups.length;
+
+          // If less than 10 returned, no more data
+          if (groups.length < 10) {
+            done = true;
+          }
+        }
+
+        // Only return up to limit
+        const items = found.slice(0, input.limit);
+        const nextCursor = done || items.length < input.limit ? undefined : offset;
 
         return {
           items,
           nextCursor,
-          total: filteredGroups.length, // Add total count for better UX
+          total: undefined, // Not available without fetching all
         };
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
