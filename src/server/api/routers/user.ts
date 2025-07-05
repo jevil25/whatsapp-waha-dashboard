@@ -314,7 +314,7 @@ export const userRouter = createTRPCRouter({
     .input(z.object({
       sessionName: z.string(),
       limit: z.number().min(1).max(50).default(20),
-      cursor: z.number().nullish(),
+      cursor: z.number().default(0),
       search: z.string().optional(),
     }))
     .query(async ({ input }) => {
@@ -330,7 +330,7 @@ export const userRouter = createTRPCRouter({
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-        const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/groups`, {
+        const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/groups?limit=${input.limit}&offset=${input.cursor ?? 0} : ''}`, {
           method: 'GET',
           headers: {
             ...WAHA_HEADERS,

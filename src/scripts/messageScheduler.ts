@@ -21,20 +21,20 @@ async function checkAndSendScheduledMessages() {
             }
         });
 
+        // Filter messages that are scheduled to be sent now or earlier
+        const messagesToSend = pendingMessages.filter(message => {
+            return message.scheduledAt <= now;
+        });
+
         await prisma.message.updateMany({
             where: {
                 id: {
-                    in: pendingMessages.map(message => message.id)
+                    in: messagesToSend.map(message => message.id)
                 },
             },
             data: {
                 isPicked: true,
             }
-        });
-
-        // Filter messages that are scheduled to be sent now or earlier
-        const messagesToSend = pendingMessages.filter(message => {
-            return message.scheduledAt <= now;
         });
 
         if (messagesToSend.length === 0) {
