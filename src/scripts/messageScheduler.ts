@@ -1,16 +1,20 @@
 import { PrismaClient, CampaignStatus } from '@prisma/client';
+import { DateTime } from 'luxon';
 
 const prisma = new PrismaClient();
 
 async function checkAndSendScheduledMessages() {
     try {
-        // Get all messages that are scheduled and not sent yet
         const now = new Date();
+        const two_mins_ago = new Date(now.getTime() - 2 * 60 * 1000);
+
+        // 1. Process regular messages
         const pendingMessages = await prisma.message.findMany({
             where: {
                 isSent: false,
                 isDeleted: false,
                 isPicked: false,
+                scheduledAt: { lte: now, gte: two_mins_ago },
             },
             include: {
                 MessageCampaign: {
@@ -21,19 +25,153 @@ async function checkAndSendScheduledMessages() {
             }
         });
 
-        // Filter messages that are scheduled to be sent now or earlier
-        const messagesToSend = pendingMessages.filter(message => {
-            return message.scheduledAt <= now;
-        });
-
         await prisma.message.updateMany({
             where: {
                 id: {
-                    in: messagesToSend.map(message => message.id)
+                    in: pendingMessages.map(message => message.id)
                 },
             },
             data: {
                 isPicked: true,
+            }
+        });
+
+        // 2. Process recurring campaigns
+        const recurringCampaigns = await prisma.messageCampaign.findMany({
+            where: {
+                isRecurring: true,
+                isDeleted: false,
+                status: CampaignStatus.SCHEDULED,
+                OR: [
+                    { nextSendAt: { lte: now } },
+                    { nextSendAt: null },
+                ],
+            },
+            include: {
+                group: true,
+            },
+        });
+
+        for (const campaign of recurringCampaigns) {
+            const lastMessage = await prisma.message.findFirst({
+                where: {
+                    MessageCampaignId: campaign.id,
+                },
+                orderBy: {
+                    scheduledAt: 'desc',
+                },
+            });
+
+            let nextScheduledDate: DateTime;
+            const campaignSendTime = DateTime.fromJSDate(campaign.sendTimeUtc, { zone: campaign.timeZone });
+
+            if (lastMessage) {
+                // Calculate next scheduled date based on recurrence
+                let baseDate = DateTime.fromJSDate(lastMessage.scheduledAt, { zone: campaign.timeZone });
+                baseDate = baseDate.set({ hour: campaignSendTime.hour, minute: campaignSendTime.minute, second: 0, millisecond: 0 });
+
+                switch (campaign.recurrence) {
+                    case 'DAILY':
+                        nextScheduledDate = baseDate.plus({ days: 1 });
+                        break;
+                    case 'WEEKLY':
+                        nextScheduledDate = baseDate.plus({ weeks: 1 });
+                        break;
+                    case 'SEMI_MONTHLY':
+                        // Logic for semi-monthly: if before 15th, next is 15th; if after 15th, next is 1st of next month
+                        if (baseDate.day < 15) {
+                            nextScheduledDate = baseDate.set({ day: 15 });
+                        } else {
+                            nextScheduledDate = baseDate.plus({ months: 1 }).set({ day: 1 });
+                        }
+                        break;
+                    case 'MONTHLY':
+                        nextScheduledDate = baseDate.plus({ months: 1 });
+                        break;
+                    case 'SEMI_ANNUALLY':
+                        nextScheduledDate = baseDate.plus({ months: 6 });
+                        break;
+                    case 'ANNUALLY':
+                        nextScheduledDate = baseDate.plus({ years: 1 });
+                        break;
+                    default:
+                        console.warn(`Unknown recurrence type for campaign ${campaign.id}: ${campaign.recurrence}`);
+                        continue;
+                }
+            } else {
+                // First message for a recurring campaign
+                nextScheduledDate = DateTime.fromJSDate(campaign.startDate, { zone: campaign.timeZone })
+                    .set({ hour: campaignSendTime.hour, minute: campaignSendTime.minute, second: 0, millisecond: 0 });
+            }
+
+            // Ensure the next scheduled date is not past the campaign's end date
+            const campaignEndDate = DateTime.fromJSDate(campaign.endDate, { zone: campaign.timeZone })
+                .set({ hour: campaignSendTime.hour, minute: campaignSendTime.minute, second: 0, millisecond: 0 });
+
+            if (nextScheduledDate > campaignEndDate) {
+                console.log(`Recurring campaign ${campaign.id} has reached its end date. Marking as completed.`);
+                await prisma.messageCampaign.update({
+                    where: { id: campaign.id },
+                    data: {
+                        status: CampaignStatus.COMPLETED,
+                        isCompleted: true,
+                    },
+                });
+                continue; // Skip to next campaign
+            }
+
+            // Only create a new message if the next scheduled date is in the past or very near future
+            if (nextScheduledDate <= DateTime.now().plus({ minutes: 5 })) { // Allow a small window for scheduling
+                const daysDiff = Math.ceil(campaignEndDate.diff(nextScheduledDate, 'days').days);
+                let messageContent = '';
+                
+                if (campaign.title) {
+                    messageContent += `Campaign Title: ${campaign.title}\n`;
+                }
+                
+                messageContent += `Campaign Start Date: ${DateTime.fromJSDate(campaign.startDate).toFormat('yyyy-LL-dd')}\n`;
+                messageContent += `Campaign End Date: ${DateTime.fromJSDate(campaign.endDate).toFormat('yyyy-LL-dd')}\n`;
+                
+                if (campaign.targetAmount) {
+                    messageContent += `Contribution Target Amount: ${campaign.targetAmount}\n`;
+                }
+                
+                messageContent += `Days Remaining: ${daysDiff}\n\n`;
+                messageContent += campaign.template.replace(/{days_left}/g, daysDiff.toString());
+
+                await prisma.message.create({
+                    data: {
+                        sessionId: campaign.sessionId,
+                        content: messageContent,
+                        scheduledAt: nextScheduledDate.toUTC().toJSDate(),
+                        MessageCampaignId: campaign.id,
+                    },
+                });
+
+                await prisma.messageCampaign.update({
+                    where: { id: campaign.id },
+                    data: {
+                        nextSendAt: nextScheduledDate.toUTC().toJSDate(),
+                    },
+                });
+                console.log(`Created new message for recurring campaign ${campaign.id}, scheduled for ${nextScheduledDate.toISO()}`);
+            }
+        }
+
+        // Continue with sending messages (both regular and newly created recurring ones)
+        const messagesToSend = await prisma.message.findMany({
+            where: {
+                isSent: false,
+                isDeleted: false,
+                isPicked: true,
+                scheduledAt: { lte: now, gte: two_mins_ago },
+            },
+            include: {
+                MessageCampaign: {
+                    include: {
+                        group: true,
+                    },
+                },
             }
         });
 
@@ -85,6 +223,67 @@ async function checkAndSendScheduledMessages() {
                     }
                 });
 
+                // If this was a recurring campaign, update nextSendAt
+                if (message.MessageCampaign?.isRecurring) {
+                    const campaign = message.MessageCampaign;
+                    const campaignSendTime = DateTime.fromJSDate(campaign.sendTimeUtc, { zone: campaign.timeZone });
+                    let baseDate = DateTime.fromJSDate(message.scheduledAt, { zone: campaign.timeZone });
+                    baseDate = baseDate.set({ hour: campaignSendTime.hour, minute: campaignSendTime.minute, second: 0, millisecond: 0 });
+
+                    let nextScheduledDate: DateTime;
+                    switch (campaign.recurrence) {
+                        case 'DAILY':
+                            nextScheduledDate = baseDate.plus({ days: 1 });
+                            break;
+                        case 'WEEKLY':
+                            nextScheduledDate = baseDate.plus({ weeks: 1 });
+                            break;
+                        case 'SEMI_MONTHLY':
+                            if (baseDate.day < 15) {
+                                nextScheduledDate = baseDate.set({ day: 15 });
+                            } else {
+                                nextScheduledDate = baseDate.plus({ months: 1 }).set({ day: 1 });
+                            }
+                            break;
+                        case 'MONTHLY':
+                            nextScheduledDate = baseDate.plus({ months: 1 });
+                            break;
+                        case 'SEMI_ANNUALLY':
+                            nextScheduledDate = baseDate.plus({ months: 6 });
+                            break;
+                        case 'ANNUALLY':
+                            nextScheduledDate = baseDate.plus({ years: 1 });
+                            break;
+                        default:
+                            console.warn(`Unknown recurrence type for campaign ${campaign.id}: ${campaign.recurrence}`);
+                            continue;
+                    }
+
+                    // Ensure the next scheduled date is not past the campaign's end date
+                    const campaignEndDate = DateTime.fromJSDate(campaign.endDate, { zone: campaign.timeZone })
+                        .set({ hour: campaignSendTime.hour, minute: campaignSendTime.minute, second: 0, millisecond: 0 });
+
+                    if (nextScheduledDate > campaignEndDate) {
+                        console.log(`Recurring campaign ${campaign.id} has reached its end date. Marking as completed.`);
+                        await prisma.messageCampaign.update({
+                            where: { id: campaign.id },
+                            data: {
+                                status: CampaignStatus.COMPLETED,
+                                isCompleted: true,
+                                nextSendAt: null, // No more sends
+                            },
+                        });
+                    } else {
+                        await prisma.messageCampaign.update({
+                            where: { id: campaign.id },
+                            data: {
+                                nextSendAt: nextScheduledDate.toUTC().toJSDate(),
+                            },
+                        });
+                        console.log(`Updated nextSendAt for recurring campaign ${campaign.id} to ${nextScheduledDate.toISO()}`);
+                    }
+                }
+
                 // Also update the campaign status if this was the last message
                 if (message.MessageCampaign) {
                     const remainingMessages = await prisma.message.count({
@@ -96,7 +295,7 @@ async function checkAndSendScheduledMessages() {
                         }
                     });
 
-                    if (remainingMessages === 0) {
+                    if (remainingMessages === 0 && !message.MessageCampaign.isRecurring) {
                         await prisma.messageCampaign.update({
                             where: {
                                 id: message.MessageCampaign.id

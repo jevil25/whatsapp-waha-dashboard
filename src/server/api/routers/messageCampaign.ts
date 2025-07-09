@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
@@ -17,10 +19,21 @@ export const messageCampaignRouter = createTRPCRouter({
         messageTime: z.string().regex(/^\d{1,2}:\d{2}$/),
         timeZone: z.string().default('America/Chicago'), // Time zone for scheduling
         messageTemplate: z.string(),
+        isRecurring: z.boolean(),
+        recurrence: z.enum(['DAILY', 'WEEKLY', 'SEMI_MONTHLY', 'MONTHLY', 'SEMI_ANNUALLY', 'ANNUALLY']).default('DAILY'),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { groupId, sessionId, startDate, endDate, messageTime, timeZone, messageTemplate, title, targetAmount } = input;
+      const { groupId, sessionId, startDate, endDate, messageTime, timeZone, messageTemplate, title, targetAmount, isRecurring, recurrence } = input;
+
+      const recurrenceDaysMap = {
+        DAILY: 1,
+        WEEKLY: 7,
+        SEMI_MONTHLY: 15,
+        MONTHLY: 30,
+        SEMI_ANNUALLY: 182,
+        ANNUALLY: 365,
+      }
 
       const timeRegex = new RegExp(/^(\d{1,2}):(\d{2})$/);
       const timeMatch = timeRegex.exec(messageTime);
@@ -54,13 +67,20 @@ export const messageCampaignRouter = createTRPCRouter({
       const sendTimeUtc = startDt.toUTC().toJSDate();
 
       const messages = [];
-      for (let i = 0; i <= daysDiff; i++) {
+      let days_width = 1;
+
+      if (isRecurring) {
+        days_width = recurrenceDaysMap[recurrence];
+      }
+      let i =0;
+      while (i< daysDiff) {
+        console.log(`Creating message for day ${i + 1} of ${daysDiff + 1}`);
         const messageDate = startDt.plus({ days: i });
         
         const scheduledDateUtc = messageDate.toUTC().toJSDate();
 
         const daysLeft = daysDiff - i;
-        if (daysLeft < 1) continue;
+        if (daysLeft < 1) break;
         
         // Build message content with optional fields
         let messageContent = '';
@@ -85,6 +105,7 @@ export const messageCampaignRouter = createTRPCRouter({
           content: messageContent,
           scheduledAt: scheduledDateUtc,
         });
+        i = i + days_width;
       }
 
       let group = await ctx.db.whatsAppGroup.findUnique({
@@ -118,6 +139,8 @@ export const messageCampaignRouter = createTRPCRouter({
           timeZone,
           template: messageTemplate,
           status: "SCHEDULED",
+          isRecurring,
+          recurrence,
           messages: {
             create: messages,
           },
@@ -158,6 +181,8 @@ export const messageCampaignRouter = createTRPCRouter({
             template: true,
             status: true,
             createdAt: true,
+            isRecurring: true,
+            recurrence: true,
             group: {
               select: {
                 id: true,
@@ -220,6 +245,8 @@ export const messageCampaignRouter = createTRPCRouter({
             template: true,
             status: true,
             createdAt: true,
+            isRecurring: true,
+            recurrence: true,
             group: {
               select: {
                 id: true,
@@ -292,10 +319,21 @@ export const messageCampaignRouter = createTRPCRouter({
         messageTime: z.string().regex(/^\d{1,2}:\d{2}$/),
         timeZone: z.string().default('America/Chicago'), // Time zone for scheduling
         messageTemplate: z.string(),
+        isRecurring: z.boolean(),
+        recurrence: z.enum(['DAILY', 'WEEKLY', 'SEMI_MONTHLY', 'MONTHLY', 'SEMI_ANNUALLY', 'ANNUALLY']).default('DAILY'),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { campaignId, startDate, endDate, messageTime, timeZone, messageTemplate, title, targetAmount } = input;
+      const { campaignId, startDate, endDate, messageTime, timeZone, messageTemplate, title, targetAmount, isRecurring, recurrence } = input;
+
+      const recurrenceDaysMap = {
+        DAILY: 1,
+        WEEKLY: 7,
+        SEMI_MONTHLY: 15,
+        MONTHLY: 30,
+        SEMI_ANNUALLY: 182,
+        ANNUALLY: 365,
+      }
 
       // Validate time format
       const timeRegex = new RegExp(/^(\d{1,2}):(\d{2})$/);
@@ -331,7 +369,6 @@ export const messageCampaignRouter = createTRPCRouter({
       }
 
       // Check if any messages have already been sent - use optional chaining for safety
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
       const hasSentMessages = existingCampaign.messages?.some((m: any) => m.isSent) ?? false;
       if (hasSentMessages) {
         throw new Error("Cannot edit campaign with messages that have already been sent");
@@ -355,8 +392,13 @@ export const messageCampaignRouter = createTRPCRouter({
 
       // Calculate new messages
       const messages = [];
-      let currentDate = startDt;
+      let days_width = 1;
 
+      if (isRecurring) {
+        days_width = recurrenceDaysMap[recurrence];
+      }
+        // For non-recurring campaigns, generate messages for each day
+      let currentDate = startDt;
       while (currentDate <= endDt) {
         const scheduledDateUtc = currentDate.setZone("UTC").toJSDate();
         const endDateObj = endDt.toJSDate();
@@ -384,7 +426,7 @@ export const messageCampaignRouter = createTRPCRouter({
           scheduledAt: scheduledDateUtc,
         });
 
-        currentDate = currentDate.plus({ days: 1 });
+        currentDate = currentDate.plus({ days: days_width });
       }
 
       // Mark existing unsent messages as deleted and create new ones
@@ -416,6 +458,8 @@ export const messageCampaignRouter = createTRPCRouter({
           sendTimeUtc,
           timeZone,
           template: messageTemplate,
+          recurrence,
+          isRecurring,
           messages: {
             create: messages,
           },

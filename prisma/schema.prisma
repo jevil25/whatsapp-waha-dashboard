@@ -92,9 +92,21 @@ model MessageCampaign {
   isEdited     Boolean        @default(false)
   isCompleted  Boolean        @default(false)
   status       CampaignStatus @default(SCHEDULED)
+  recurrence   Recurrence?
+  isRecurring  Boolean        @default(false)
+  nextSendAt   DateTime?
 
   session      WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  group WhatsAppGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  group        WhatsAppGroup   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}
+
+enum Recurrence {
+  DAILY
+  WEEKLY
+  SEMI_MONTHLY
+  MONTHLY
+  SEMI_ANNUALLY
+  ANNUALLY
 }
 
 model Message {

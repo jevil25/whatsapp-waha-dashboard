@@ -32,6 +32,9 @@ export default function Home() {
   const [messagePreview, setMessagePreview] = useState('');
   const [campaignTitle, setCampaignTitle] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
+  const [isRecurring, setIsRecurring] = useState(false);
+  type RecurrenceType = 'DAILY' | 'WEEKLY' | 'SEMI_MONTHLY' | 'MONTHLY' | 'SEMI_ANNUALLY' | 'ANNUALLY';
+  const [recurrence, setRecurrence] = useState<RecurrenceType | undefined>(undefined);
 
   // Common time zones for the selector
   const timeZones = [
@@ -49,6 +52,15 @@ export default function Home() {
     { value: 'Asia/Kolkata', label: 'IST (Mumbai)' },
     { value: 'Australia/Sydney', label: 'AEDT (Sydney)' },
     { value: 'UTC', label: 'UTC' },
+  ];
+
+  const recurrenceOptions = [
+    { value: 'DAILY', label: 'Daily' },
+    { value: 'WEEKLY', label: 'Weekly' },
+    { value: 'SEMI_MONTHLY', label: 'Semi-Monthly (Twice per Month)' },
+    { value: 'MONTHLY', label: 'Monthly' },
+    { value: 'SEMI_ANNUALLY', label: 'Semi-Annually (Every 6 Months)' },
+    { value: 'ANNUALLY', label: 'Annually' },
   ];
 
   // State for editing campaigns
@@ -318,6 +330,8 @@ export default function Home() {
     setTimeZone(campaign.timeZone || 'America/Chicago');
     
     setMessageTemplate(campaign.template);
+    setIsRecurring(campaign.isRecurring || false);
+    setRecurrence(campaign.recurrence || undefined);
   };
   /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/prefer-nullish-coalescing */
 
@@ -332,6 +346,8 @@ export default function Home() {
     setMessagePreview('');
     setCampaignTitle('');
     setTargetAmount('');
+    setIsRecurring(false);
+    setRecurrence(undefined);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -352,6 +368,8 @@ export default function Home() {
         messageTime,
         timeZone,
         messageTemplate,
+        isRecurring,
+        recurrence: isRecurring ? recurrence : undefined,
       });
     } else {
       // Create new campaign
@@ -368,6 +386,8 @@ export default function Home() {
         messageTime,
         timeZone,
         messageTemplate,
+        isRecurring,
+        recurrence: isRecurring ? recurrence : undefined,
       });
     }
   };
@@ -840,6 +860,41 @@ export default function Home() {
                                   </div>
                                 </div>
 
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    id="isRecurring"
+                                    checked={isRecurring}
+                                    onChange={(e) => setIsRecurring(e.target.checked)}
+                                    className="h-4 w-4 text-[#008069] focus:ring-[#008069] border-gray-300 rounded"
+                                  />
+                                  <label htmlFor="isRecurring" className="text-sm font-medium text-gray-700">
+                                    Make this a recurring campaign
+                                  </label>
+                                </div>
+
+                                {isRecurring && (
+                                  <div>
+                                    <label htmlFor="recurrence" className="block text-sm font-medium text-gray-700 mb-1">
+                                      Recurrence
+                                    </label>
+                                    <select
+                                      id="recurrence"
+                                      value={recurrence}
+                                      onChange={(e) => setRecurrence(e.target.value as RecurrenceType)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
+                                      required={isRecurring}
+                                    >
+                                      <option value="">Select recurrence</option>
+                                      {recurrenceOptions.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                          {option.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+
                                 <div>
                                   <label htmlFor="messageTemplate" className="block text-sm font-medium text-gray-700 mb-1">
                                     Message Template
@@ -872,6 +927,7 @@ export default function Home() {
                                   disabled={
                                     (editingCampaign ? updateCampaign.isPending : createCampaign.isPending) || 
                                     !startDate || !endDate || !messageTemplate || 
+                                    (isRecurring && !recurrence) ||
                                     (!editingCampaign && (!selectedGroupId || !selectedGroupName))
                                   }
                                 >
