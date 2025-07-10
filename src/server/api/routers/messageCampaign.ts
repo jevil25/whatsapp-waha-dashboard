@@ -19,6 +19,7 @@ export const messageCampaignRouter = createTRPCRouter({
         messageTime: z.string().regex(/^\d{1,2}:\d{2}$/),
         timeZone: z.string().default('America/Chicago'), // Time zone for scheduling
         messageTemplate: z.string(),
+        isFreeForm: z.boolean().default(false),
         isRecurring: z.boolean(),
         recurrence: z.enum(['DAILY', 'WEEKLY', 'SEMI_MONTHLY', 'MONTHLY', 'SEMI_ANNUALLY', 'ANNUALLY']).default('DAILY'),
       })
@@ -86,18 +87,20 @@ export const messageCampaignRouter = createTRPCRouter({
         let messageContent = '';
         
         // Add title if provided
-        if (title) {
-          messageContent += `Campaign Title: ${title}\n`;
+        if (!input.isFreeForm) {
+          if (title) {
+            messageContent += `Campaign Title: ${title}\n`;
+          }
+          
+          messageContent += `Campaign Start Date: ${startDt.toFormat('yyyy-LL-dd')}\n`;
+          messageContent += `Campaign End Date: ${endDt.toFormat('yyyy-LL-dd')}\n`;
+          
+          if (targetAmount) {
+            messageContent += `Contribution Target Amount: ${targetAmount}\n`;
+          }
+          
+          messageContent += `Days Remaining: ${daysLeft}\n\n`;
         }
-        
-        messageContent += `Campaign Start Date: ${startDt.toFormat('yyyy-LL-dd')}\n`;
-        messageContent += `Campaign End Date: ${endDt.toFormat('yyyy-LL-dd')}\n`;
-        
-        if (targetAmount) {
-          messageContent += `Contribution Target Amount: ${targetAmount}\n`;
-        }
-        
-        messageContent += `Days Remaining: ${daysLeft}\n\n`;
         messageContent += messageTemplate.replace(/{days_left}/g, daysLeft.toString());
 
         messages.push({
@@ -320,6 +323,7 @@ export const messageCampaignRouter = createTRPCRouter({
         timeZone: z.string().default('America/Chicago'), // Time zone for scheduling
         messageTemplate: z.string(),
         isRecurring: z.boolean(),
+        isFreeForm: z.boolean().default(false),
         recurrence: z.enum(['DAILY', 'WEEKLY', 'SEMI_MONTHLY', 'MONTHLY', 'SEMI_ANNUALLY', 'ANNUALLY']).default('DAILY'),
       })
     )
@@ -406,18 +410,20 @@ export const messageCampaignRouter = createTRPCRouter({
 
         let messageContent = '';
         
-        if (title?.trim()) {
-          messageContent += `Campaign Title: ${title}\n`;
+        if (!input.isFreeForm) {
+          if (title?.trim()) {
+            messageContent += `Campaign Title: ${title}\n`;
+          }
+          
+          messageContent += `Campaign Start Date: ${startDate}\n`;
+          messageContent += `Campaign End Date: ${endDate}\n`;
+          
+          if (targetAmount?.trim()) {
+            messageContent += `Contribution Target Amount: ${targetAmount}\n`;
+          }
+          
+          messageContent += `Days Remaining: ${daysLeft}\n\n`;
         }
-        
-        messageContent += `Campaign Start Date: ${startDate}\n`;
-        messageContent += `Campaign End Date: ${endDate}\n`;
-        
-        if (targetAmount?.trim()) {
-          messageContent += `Contribution Target Amount: ${targetAmount}\n`;
-        }
-        
-        messageContent += `Days Remaining: ${daysLeft}\n\n`;
         messageContent += messageTemplate.replace(/{days_left}/g, daysLeft.toString());
 
         messages.push({

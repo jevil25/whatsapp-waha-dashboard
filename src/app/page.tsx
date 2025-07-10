@@ -33,6 +33,7 @@ export default function Home() {
   const [campaignTitle, setCampaignTitle] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
+  const [isFreeForm, setIsFreeForm] = useState(false);
   type RecurrenceType = 'DAILY' | 'WEEKLY' | 'SEMI_MONTHLY' | 'MONTHLY' | 'SEMI_ANNUALLY' | 'ANNUALLY';
   const [recurrence, setRecurrence] = useState<RecurrenceType | undefined>(undefined);
 
@@ -369,6 +370,7 @@ export default function Home() {
         timeZone,
         messageTemplate,
         isRecurring,
+        isFreeForm,
         recurrence: isRecurring ? recurrence : undefined,
       });
     } else {
@@ -387,6 +389,7 @@ export default function Home() {
         timeZone,
         messageTemplate,
         isRecurring,
+        isFreeForm,
         recurrence: isRecurring ? recurrence : undefined,
       });
     }
@@ -870,6 +873,19 @@ export default function Home() {
                                   />
                                   <label htmlFor="isRecurring" className="text-sm font-medium text-gray-700">
                                     Make this a recurring campaign
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    id="isRecurring"
+                                    checked={isRecurring}
+                                    onChange={(e) => setIsFreeForm(e.target.checked)}
+                                    className="h-4 w-4 text-[#008069] focus:ring-[#008069] border-gray-300 rounded"
+                                  />
+                                  <label htmlFor="isRecurring" className="text-sm font-medium text-gray-700">
+                                    Make this a free form message campaign
                                   </label>
                                 </div>
 
