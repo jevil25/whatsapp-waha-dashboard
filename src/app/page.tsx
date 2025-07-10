@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/non-nullable-type-assertion-style */
+/* eslint-disable @typescript-eslint/prefer-optional-chain */
 'use client';
 
 import Image from 'next/image';
@@ -22,6 +24,12 @@ export default function Home() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedGroupName, setSelectedGroupName] = useState<string | null>(null);
   const [screenshotKey, setScreenshotKey] = useState(0);
+
+  // New state variable for message sequences
+  const [messageSequence, setMessageSequence] = useState<string[]>([]);
+
+  // New state for validating sequence count
+  const [sequenceError, setSequenceError] = useState<string | null>(null);
 
   // New state variables for scheduling
   const [startDate, setStartDate] = useState('');
@@ -239,23 +247,31 @@ export default function Home() {
     let preview = '';
     
     // Add title if provided
-    if (campaignTitle.trim()) {
-      preview += `Campaign Title: ${campaignTitle}\n`;
+    if (!isFreeForm) {
+      if (campaignTitle.trim()) {
+        preview += `Campaign Title: ${campaignTitle}\n`;
+      }
+      
+      preview += `Campaign Start Date: ${startDate}\n`;
+      preview += `Campaign End Date: ${endDate}\n`;
+      
+      // Add target amount if provided
+      if (targetAmount.trim()) {
+        preview += `Contribution Target Amount: ${targetAmount}\n`;
+      }
+      
+      preview += `Days Remaining: ${daysLeft}\n\n`;
     }
-    
-    preview += `Campaign Start Date: ${startDate}\n`;
-    preview += `Campaign End Date: ${endDate}\n`;
-    
-    // Add target amount if provided
-    if (targetAmount.trim()) {
-      preview += `Contribution Target Amount: ${targetAmount}\n`;
+
+    if (messageTemplate.includes("*")){
+      const messages = messageTemplate.split('*')[0];
+      preview+= messages?.replace(/{days_left}/g, daysLeft.toString());
+    }else {
+      preview += messageTemplate.replace(/{days_left}/g, daysLeft.toString());
     }
-    
-    preview += `Days Remaining: ${daysLeft}\n\n`;
-    preview += messageTemplate.replace(/{days_left}/g, daysLeft.toString());
     
     setMessagePreview(preview);
-  }, [messageTemplate, startDate, endDate, campaignTitle, targetAmount]);
+  }, [messageTemplate, startDate, endDate, campaignTitle, targetAmount, isFreeForm]);
 
   // Update preview when dependencies change
   useEffect(() => {
@@ -330,7 +346,15 @@ export default function Home() {
     // Set time zone (default to Central Time for existing campaigns that don't have it stored)
     setTimeZone(campaign.timeZone || 'America/Chicago');
     
-    setMessageTemplate(campaign.template);
+    // Handle message sequence if it exists, otherwise use template as single message
+    if (campaign.template && campaign.template.includes('*')) {
+      setMessageSequence(campaign.template.split('*').map((msg: string) => msg.trim()));
+      setMessageTemplate(campaign.template);
+    } else {
+      setMessageSequence([campaign.template]);
+      setMessageTemplate(campaign.template);
+    }
+    
     setIsRecurring(campaign.isRecurring || false);
     setRecurrence(campaign.recurrence || undefined);
   };
@@ -349,12 +373,63 @@ export default function Home() {
     setTargetAmount('');
     setIsRecurring(false);
     setRecurrence(undefined);
+    setMessageSequence([]);
+    setSequenceError(null);
   };
+
+  // Helper function to validate message sequence
+  const validateMessageSequence = useCallback((messages: string[]) => {
+    if (!isRecurring || 
+        !recurrence || 
+        !startDate || 
+        !endDate || 
+        !messageTemplate.includes('*')) return true;
+
+    const recurrenceDaysMap = {
+      'DAILY': 1,
+      'WEEKLY': 7,
+      'SEMI_MONTHLY': 15,
+      'MONTHLY': 30,
+      'SEMI_ANNUALLY': 182,
+      'ANNUALLY': 365
+    } as const;
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    const sequenceWidth = recurrenceDaysMap[recurrence as keyof typeof recurrenceDaysMap];
+    const requiredCount = Math.ceil(daysDiff / sequenceWidth);
+    
+    if (messages.length !== requiredCount) {
+      const errorMessage = `When using asterisks (*) to separate messages, please provide exactly ${requiredCount} message${requiredCount > 1 ? 's' : ''} for ${recurrence.toLowerCase()} recurrence. ` +
+        `Each message will be sent every ${sequenceWidth} day${sequenceWidth > 1 ? 's' : ''} over the ${daysDiff}-day period.\n\n` +
+        `Or remove the asterisks to use the same message for all occurrences.`;
+      setSequenceError(errorMessage);
+      return false;
+    }
+    
+    setSequenceError(null);
+    return true;
+  }, [isRecurring, recurrence, startDate, endDate, messageTemplate]);
+
+  useEffect(() => {
+    if (messageTemplate.includes('*')) {
+      const messages = messageTemplate.split('*').map(msg => msg.trim()).filter(msg => msg.length > 0);
+      if (!validateMessageSequence(messages)) return;
+    }
+  }, [messageTemplate, isRecurring, recurrence, startDate, endDate, validateMessageSequence]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!whatsAppSession?.sessionName) return;
     if (!editingCampaign && (!selectedGroupId || !selectedGroupName)) return;
+
+    // Only validate message sequence if the template contains asterisks
+    if (messageTemplate.includes('*')) {
+      const messages = messageTemplate.split('*').map(msg => msg.trim()).filter(msg => msg.length > 0);
+      if (!validateMessageSequence(messages)) return;
+    }
 
     setSubmitStatus(null);
     if (editingCampaign) {
@@ -868,23 +943,29 @@ export default function Home() {
                                     type="checkbox"
                                     id="isRecurring"
                                     checked={isRecurring}
-                                    onChange={(e) => setIsRecurring(e.target.checked)}
+                                    onChange={(e) => {
+                                      setIsRecurring(e.target.checked);
+                                      if (!e.target.checked) {
+                                        setRecurrence(undefined);
+                                        setSequenceError(null);
+                                      }
+                                    }}
                                     className="h-4 w-4 text-[#008069] focus:ring-[#008069] border-gray-300 rounded"
                                   />
-                                  <label htmlFor="isRecurring" className="text-sm font-medium text-gray-700">
-                                    Make this a recurring campaign
+                                  <label htmlFor="isRecurring" className="text-sm text-gray-700">
+                                    Recurring Messages
                                   </label>
                                 </div>
 
                                 <div className="flex items-center gap-2">
                                   <input
                                     type="checkbox"
-                                    id="isRecurring"
-                                    checked={isRecurring}
+                                    id="isFreeForm"
+                                    checked={isFreeForm}
                                     onChange={(e) => setIsFreeForm(e.target.checked)}
                                     className="h-4 w-4 text-[#008069] focus:ring-[#008069] border-gray-300 rounded"
                                   />
-                                  <label htmlFor="isRecurring" className="text-sm font-medium text-gray-700">
+                                  <label htmlFor="isFreeForm" className="text-sm font-medium text-gray-700">
                                     Make this a free form message campaign
                                   </label>
                                 </div>
@@ -892,16 +973,19 @@ export default function Home() {
                                 {isRecurring && (
                                   <div>
                                     <label htmlFor="recurrence" className="block text-sm font-medium text-gray-700 mb-1">
-                                      Recurrence
+                                      Recurrence Pattern
                                     </label>
                                     <select
                                       id="recurrence"
-                                      value={recurrence}
-                                      onChange={(e) => setRecurrence(e.target.value as RecurrenceType)}
+                                      value={recurrence ?? ''}
+                                      onChange={(e) => {
+                                        setRecurrence(e.target.value as RecurrenceType);
+                                        setSequenceError(null);
+                                      }}
                                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
                                       required={isRecurring}
                                     >
-                                      <option value="">Select recurrence</option>
+                                      <option value="">Select a pattern</option>
                                       {recurrenceOptions.map((option) => (
                                         <option key={option.value} value={option.value}>
                                           {option.label}
@@ -914,18 +998,43 @@ export default function Home() {
                                 <div>
                                   <label htmlFor="messageTemplate" className="block text-sm font-medium text-gray-700 mb-1">
                                     Message Template
-                                    <span className="text-xs text-gray-500 ml-2">
-                                      Use {'{days_left}'} to show remaining days
-                                    </span>
                                   </label>
-                                  <textarea
-                                    id="messageTemplate"
-                                    value={messageTemplate}
-                                    onChange={(e) => setMessageTemplate(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069] min-h-[100px]"
-                                    placeholder="Enter your message here. Use {days_left} to show the countdown."
-                                    required
-                                  />
+                                  <div className="relative">
+                                    <textarea
+                                      id="messageTemplate"
+                                      value={messageTemplate}
+                                      onChange={(e) => {
+                                        setMessageTemplate(e.target.value);
+                                        const messages = e.target.value.split('*').map(msg => msg.trim()).filter(msg => msg.length > 0);
+                                        setMessageSequence(messages);
+                                        if (isRecurring && recurrence) {
+                                          validateMessageSequence(messages);
+                                        }
+                                      }}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069] min-h-[120px]"
+                                      placeholder={isRecurring ? "Enter messages separated by * (asterisk). Example:\nMessage for first period * Message for second period" : "Enter your message"}
+                                      required
+                                    />
+                                    {isRecurring && recurrence && (
+                                      <div className="absolute right-2 bottom-2 text-xs text-gray-500">
+                                        {messageSequence.length} / {recurrence === 'DAILY' ? '1' :
+                                          recurrence === 'WEEKLY' ? '7' :
+                                          recurrence === 'SEMI_MONTHLY' ? '2' :
+                                          recurrence === 'MONTHLY' ? '12' :
+                                          recurrence === 'SEMI_ANNUALLY' ? '2' : '1'} messages
+                                      </div>
+                                    )}
+                                  </div>
+                                  {sequenceError && (
+                                    <p className="mt-1 text-sm text-red-600">
+                                      {sequenceError}
+                                    </p>
+                                  )}
+                                  {isRecurring && !sequenceError && (
+                                    <p className="mt-1 text-sm text-gray-500">
+                                      Separate multiple messages with an asterisk (*). Each message will be sent according to the recurrence pattern.
+                                    </p>
+                                  )}
                                 </div>
 
                                 {messageTemplate && messagePreview && (

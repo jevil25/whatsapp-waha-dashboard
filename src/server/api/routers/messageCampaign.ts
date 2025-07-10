@@ -63,25 +63,43 @@ export const messageCampaignRouter = createTRPCRouter({
         throw new Error("End date must be after start date");
       }
 
-      const daysDiff = Math.ceil(endDt.diff(startDt, 'days').days);
-
-      const sendTimeUtc = startDt.toUTC().toJSDate();
-
       const messages = [];
       let days_width = 1;
 
       if (isRecurring) {
         days_width = recurrenceDaysMap[recurrence];
       }
-      let i =0;
-      while (i< daysDiff) {
-        console.log(`Creating message for day ${i + 1} of ${daysDiff + 1}`);
-        const messageDate = startDt.plus({ days: i });
-        
-        const scheduledDateUtc = messageDate.toUTC().toJSDate();
 
-        const daysLeft = daysDiff - i;
-        if (daysLeft < 1) break;
+      // Split message template into sequence only if it contains asterisks
+      const hasMessageSequence = messageTemplate.includes('*');
+      const messageSequence = hasMessageSequence 
+        ? messageTemplate.split('*').map(msg => msg.trim()).filter(msg => msg.length > 0)
+        : [messageTemplate]; // If no asterisks, treat as single message
+      
+      // Calculate required message count and validate only if using message sequence
+      if (isRecurring && hasMessageSequence) {
+        const daysDiff = Math.ceil(endDt.diff(startDt, 'days').days) + 1; // +1 to include end date
+        const requiredMessageCount = Math.ceil(daysDiff / recurrenceDaysMap[recurrence]);
+        
+        if (messageSequence.length !== requiredMessageCount) {
+          throw new Error(
+            `For the selected date range and ${recurrence.toLowerCase()} recurrence, ` +
+            `you need exactly ${requiredMessageCount} unique message${requiredMessageCount > 1 ? 's' : ''} ` +
+            `separated by asterisks (*). Or remove the asterisks to use the same message for all occurrences.`
+          );
+        }
+      }
+
+      let i = 0;
+      let sequenceIndex = 0;
+      const daysDiff = Math.ceil(endDt.diff(startDt, 'days').days) + 1;
+      const sendTimeUtc = startDt.toUTC().toJSDate();
+
+      while (i < daysDiff) {
+        console.log(`Creating message for day ${i + 1} of ${daysDiff}`);
+        const messageDate = startDt.plus({ days: i });
+        const scheduledDateUtc = messageDate.toUTC().toJSDate();
+        const daysLeft = daysDiff - i - 1; // -1 because we want to show 0 on the last day
         
         // Build message content with optional fields
         let messageContent = '';
@@ -101,14 +119,21 @@ export const messageCampaignRouter = createTRPCRouter({
           
           messageContent += `Days Remaining: ${daysLeft}\n\n`;
         }
-        messageContent += messageTemplate.replace(/{days_left}/g, daysLeft.toString());
+
+        // Select and add appropriate message from sequence
+        const messageText = isRecurring && messageSequence.length > 0
+          ? messageSequence[sequenceIndex % messageSequence.length]
+          : messageTemplate;
+        messageContent += messageText?.replace(/{days_left}/g, daysLeft.toString());
 
         messages.push({
           sessionId,
           content: messageContent,
           scheduledAt: scheduledDateUtc,
         });
+
         i = i + days_width;
+        sequenceIndex++;
       }
 
       let group = await ctx.db.whatsAppGroup.findUnique({
@@ -396,18 +421,41 @@ export const messageCampaignRouter = createTRPCRouter({
 
       // Calculate new messages
       const messages = [];
-      let days_width = 1;
 
+      // Split message template into sequence only if it contains asterisks
+      const hasMessageSequence = messageTemplate.includes('*');
+      const messageSequence = hasMessageSequence 
+        ? messageTemplate.split('*').map(msg => msg.trim()).filter(msg => msg.length > 0)
+        : [messageTemplate]; // If no asterisks, treat as single message
+      
+      // Calculate required message count and validate only if using message sequence
+      if (isRecurring && hasMessageSequence) {
+        const daysDiff = Math.ceil(endDt.diff(startDt, 'days').days) + 1; // +1 to include end date
+        const requiredMessageCount = Math.ceil(daysDiff / recurrenceDaysMap[recurrence]);
+        
+        if (messageSequence.length !== requiredMessageCount) {
+          throw new Error(
+            `For the selected date range and ${recurrence.toLowerCase()} recurrence, ` +
+            `you need exactly ${requiredMessageCount} unique message${requiredMessageCount > 1 ? 's' : ''} ` +
+            `separated by asterisks (*). Or remove the asterisks to use the same message for all occurrences.`
+          );
+        }
+      }
+
+      let days_width = 1;
       if (isRecurring) {
         days_width = recurrenceDaysMap[recurrence];
       }
-        // For non-recurring campaigns, generate messages for each day
+
+      // For non-recurring campaigns, generate messages for each day
       let currentDate = startDt;
+      let sequenceIndex = 0;
       while (currentDate <= endDt) {
         const scheduledDateUtc = currentDate.setZone("UTC").toJSDate();
         const endDateObj = endDt.toJSDate();
         const daysLeft = Math.ceil((endDateObj.getTime() - currentDate.toJSDate().getTime()) / (1000 * 60 * 60 * 24));
 
+        // Build message content with optional fields
         let messageContent = '';
         
         if (!input.isFreeForm) {
@@ -424,7 +472,12 @@ export const messageCampaignRouter = createTRPCRouter({
           
           messageContent += `Days Remaining: ${daysLeft}\n\n`;
         }
-        messageContent += messageTemplate.replace(/{days_left}/g, daysLeft.toString());
+
+        // Select and add appropriate message from sequence
+        const messageText = isRecurring && messageSequence.length > 0
+          ? messageSequence[sequenceIndex % messageSequence.length]
+          : messageTemplate;
+        messageContent += messageText?.replace(/{days_left}/g, daysLeft.toString());
 
         messages.push({
           sessionId: existingCampaign.sessionId,
@@ -433,6 +486,7 @@ export const messageCampaignRouter = createTRPCRouter({
         });
 
         currentDate = currentDate.plus({ days: days_width });
+        sequenceIndex++;
       }
 
       // Mark existing unsent messages as deleted and create new ones
