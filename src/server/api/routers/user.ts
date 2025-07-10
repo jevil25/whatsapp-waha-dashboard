@@ -362,7 +362,6 @@ export const userRouter = createTRPCRouter({
         const searchLower = input.search.toLowerCase();
         let found: { groupId: string, groupName: string }[] = [];
         let offset = input.cursor ?? 0;
-        let fetched = 0;
         let done = false;
 
         while (!done && found.length < input.limit) {
@@ -397,7 +396,6 @@ export const userRouter = createTRPCRouter({
 
           found = found.concat(filtered);
           offset += groups.length;
-          fetched += groups.length;
 
           // If less than 10 returned, no more data
           if (groups.length < 10) {
@@ -419,6 +417,155 @@ export const userRouter = createTRPCRouter({
           throw new TRPCError({
             code: 'TIMEOUT',
             message: 'Request timeout while fetching WhatsApp groups',
+          });
+        }
+        throw error;
+      }
+    }),
+
+  getWhatsAppContacts: userProcedure
+    .input(z.object({
+      sessionName: z.string(),
+      limit: z.number().min(1).default(50),
+      cursor: z.number().default(0),
+      search: z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      if (!WAHA_API_URL) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'WhatsApp API URL is not configured',
+        });
+      }
+
+      try {
+        // If no search, fetch once and return paginated result
+        if (!input.search) {
+          const response = await fetch(`${WAHA_API_URL}/api/contacts/all?session=${input.sessionName}&limit=${input.limit}&offset=${input.cursor ?? 0}`, {
+            method: 'GET',
+            headers: {
+              ...WAHA_HEADERS,
+              'Priority': 'u=1, i',
+              'Cache-Control': 'no-cache',
+            },
+          });
+
+          if (!response.ok) {
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: `Failed to fetch WhatsApp contacts: ${response.status} ${response.statusText}`,
+            });
+          }
+
+          const contacts = await response.json() as {
+            id: string;
+            number: string;
+            name: string;
+            pushname: string;
+            shortName: string;
+            isGroup: boolean;
+            isMe: boolean;
+            isUser: boolean;
+            isWAContact: boolean;
+            isMyContact: boolean;
+            isBlocked: boolean;
+          }[];
+
+          // Filter out groups and blocked contacts, and only include actual contacts with IDs ending in c.us
+          const filteredContacts = contacts.filter(contact => 
+            !contact.isGroup && 
+            !contact.isBlocked && 
+            !contact.isMe && 
+            contact.isWAContact &&
+            contact.number &&
+            contact.id.endsWith('c.us')
+          );
+
+          console.log(filteredContacts)
+
+          const items = filteredContacts.map(contact => ({
+            groupId: contact.id, // Using contact ID as groupId for consistency
+            groupName: contact.name || contact.pushname || contact.shortName || contact.number,
+            number: contact.number,
+            isContact: true
+          }));
+
+          const nextCursor = items.length === input.limit ? (input.cursor ?? 0) + input.limit : undefined;
+
+          return {
+            items,
+            nextCursor,
+            total: undefined,
+          };
+        }
+
+        // If search is present, fetch all contacts and filter
+        const searchLower = input.search.toLowerCase();
+        const response = await fetch(`${WAHA_API_URL}/api/contacts/all?session=${input.sessionName}&offset=${input.cursor ?? 0}`, {
+          method: 'GET',
+          headers: {
+            ...WAHA_HEADERS,
+            'Priority': 'u=1, i',
+            'Cache-Control': 'no-cache',
+          },
+        });
+
+        if (!response.ok) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to fetch WhatsApp contacts: ${response.status} ${response.statusText}`,
+          });
+        }
+
+        const contacts = await response.json() as {
+          id: string;
+          number: string;
+          name: string;
+          pushname: string;
+          shortName: string;
+          isGroup: boolean;
+          isMe: boolean;
+          isUser: boolean;
+          isWAContact: boolean;
+          isMyContact: boolean;
+          isBlocked: boolean;
+        }[];
+
+        console.log(contacts)
+
+        // Filter out groups, blocked contacts, and search - only include contacts with IDs ending in c.us
+        const filteredContacts = contacts.filter(contact => 
+          !contact.isGroup && 
+          !contact.isBlocked && 
+          !contact.isMe && 
+          contact.isWAContact &&
+          contact.number &&
+          contact.id.endsWith('c.us') &&
+          (contact.name?.toLowerCase().includes(searchLower) ||
+           contact.pushname?.toLowerCase().includes(searchLower) ||
+           contact.shortName?.toLowerCase().includes(searchLower) ||
+           contact.number?.includes(input.search ?? ''))
+        );
+
+        const items = filteredContacts.slice(0, input.limit).map(contact => ({
+          groupId: contact.id,
+          groupName: contact.name || contact.pushname || contact.shortName || contact.number,
+          number: contact.number,
+          isContact: true
+        }));
+
+        const nextCursor = filteredContacts.length > input.limit ? (input.cursor ?? 0) + input.limit : undefined;
+
+        return {
+          items,
+          nextCursor,
+          total: undefined,
+        };
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new TRPCError({
+            code: 'TIMEOUT',
+            message: 'Request timeout while fetching WhatsApp contacts',
           });
         }
         throw error;

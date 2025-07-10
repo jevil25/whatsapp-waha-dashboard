@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/non-nullable-type-assertion-style */
 /* eslint-disable @typescript-eslint/prefer-optional-chain */
 'use client';
 
@@ -8,7 +7,7 @@ import { authClient } from "~/client/auth";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { type WhatsAppSessionStatus } from "~/types/session";
-import { GroupSelector } from './_components/whatsapp/GroupSelector';
+import { AudienceSelector } from './_components/whatsapp/AudienceSelector';
 import { CampaignList } from './_components/whatsapp/CampaignList';
 import { CompletedCampaignsModal } from './_components/whatsapp/CompletedCampaignsModal';
 
@@ -21,8 +20,9 @@ export default function Home() {
   const [sessionStatus, setSessionStatus] = useState<WhatsAppSessionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentSessionName, setCurrentSessionName] = useState<string | null>(null);
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [selectedGroupName, setSelectedGroupName] = useState<string | null>(null);
+  const [selectedAudienceIds, setSelectedAudienceIds] = useState<string[]>([]);
+  const [selectedAudienceNames, setSelectedAudienceNames] = useState<string[]>([]);
+  const [selectedAudienceType, setSelectedAudienceType] = useState<'groups' | 'individuals'>('groups');
   const [screenshotKey, setScreenshotKey] = useState(0);
 
   // New state variable for message sequences
@@ -285,20 +285,7 @@ export default function Home() {
 
   const createCampaign = api.messageCampaign.createCampaign.useMutation({
     onSuccess: () => {
-      setSubmitStatus({
-        type: 'success',
-        message: 'Message campaign created successfully!'
-      });
-      // Clear form
-      setStartDate('');
-      setEndDate('');
-      setMessageTime('12:00');
-      setMessageTemplate('');
-      setMessagePreview('');
-      setCampaignTitle('');
-      setTargetAmount('');
-      // refetch campaigns
-      void trpcUtils.messageCampaign.getCampaigns.invalidate();
+      // Success handled in handleSubmit for multiple campaigns
     },
     onError: (error) => {
       setSubmitStatus({
@@ -375,6 +362,9 @@ export default function Home() {
     setRecurrence(undefined);
     setMessageSequence([]);
     setSequenceError(null);
+    setSelectedAudienceType('groups');
+    setSelectedAudienceIds([]);
+    setSelectedAudienceNames([]);
   };
 
   // Helper function to validate message sequence
@@ -423,7 +413,7 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!whatsAppSession?.sessionName) return;
-    if (!editingCampaign && (!selectedGroupId || !selectedGroupName)) return;
+    if (!editingCampaign && (!selectedAudienceIds.length || !selectedAudienceNames.length)) return;
 
     // Only validate message sequence if the template contains asterisks
     if (messageTemplate.includes('*')) {
@@ -432,8 +422,9 @@ export default function Home() {
     }
 
     setSubmitStatus(null);
+    
     if (editingCampaign) {
-      // Update existing campaign
+      // Update existing campaign - still single campaign
       updateCampaign.mutate({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         campaignId: editingCampaign.id,
@@ -447,26 +438,70 @@ export default function Home() {
         isRecurring,
         isFreeForm,
         recurrence: isRecurring ? recurrence : undefined,
+        audienceType: selectedAudienceType,
       });
     } else {
-      // Create new campaign
-      if (!selectedGroupId || !selectedGroupName) return;
+      // Create new campaigns - potentially multiple if individuals selected
+      if (!selectedAudienceIds.length || !selectedAudienceNames.length) return;
       
-      createCampaign.mutate({
-        groupId: selectedGroupId,
-        groupName: selectedGroupName,
-        sessionId: whatsAppSession.id,
-        title: campaignTitle.trim() || undefined,
-        targetAmount: targetAmount.trim() || undefined,
-        startDate,
-        endDate,
-        messageTime,
-        timeZone,
-        messageTemplate,
-        isRecurring,
-        isFreeForm,
-        recurrence: isRecurring ? recurrence : undefined,
-      });
+      try {
+        setSubmitStatus({
+          type: 'success',
+          message: `Creating ${selectedAudienceIds.length} campaign${selectedAudienceIds.length > 1 ? 's' : ''}...`
+        });
+
+        // Create a campaign for each selected audience (group or individual)
+        const createCampaignPromises = selectedAudienceIds.map((audienceId, index) => {
+          const audienceName = selectedAudienceNames[index];
+          if (!audienceName) return Promise.resolve();
+          
+          return createCampaign.mutateAsync({
+            groupId: audienceId,
+            groupName: audienceName,
+            sessionId: whatsAppSession.id,
+            title: campaignTitle.trim() || undefined,
+            targetAmount: targetAmount.trim() || undefined,
+            startDate,
+            endDate,
+            messageTime,
+            timeZone,
+            messageTemplate,
+            isRecurring,
+            isFreeForm,
+            recurrence: isRecurring ? recurrence : undefined,
+            audienceType: selectedAudienceType,
+          });
+        });
+
+        // Wait for all campaigns to be created
+        await Promise.all(createCampaignPromises);
+        
+        setSubmitStatus({
+          type: 'success',
+          message: `Successfully created ${selectedAudienceIds.length} campaign${selectedAudienceIds.length > 1 ? 's' : ''}!`
+        });
+        
+        // Clear form after successful creation
+        setStartDate('');
+        setEndDate('');
+        setMessageTime('12:00');
+        setMessageTemplate('');
+        setMessagePreview('');
+        setCampaignTitle('');
+        setTargetAmount('');
+        setSelectedAudienceIds([]);
+        setSelectedAudienceNames([]);
+        setSelectedAudienceType('groups');
+        
+        // Refetch campaigns
+        void trpcUtils.messageCampaign.getCampaigns.invalidate();
+        
+      } catch (error) {
+        setSubmitStatus({
+          type: 'error',
+          message: error instanceof Error ? error.message : 'Failed to create campaigns'
+        });
+      }
     }
   };
 
@@ -487,10 +522,18 @@ export default function Home() {
     return null;
   }
 
-  const handleGroupSelect = (groupId: string, groupName: string) => {
-    setSelectedGroupId(groupId);
-    setSelectedGroupName(groupName);
+  const handleAudienceSelect = (audienceIds: string[], audienceNames: string[], audienceType: 'groups' | 'individuals') => {
+    setSelectedAudienceIds(audienceIds);
+    setSelectedAudienceNames(audienceNames);
+    setSelectedAudienceType(audienceType);
   }
+
+  const handleAudienceTypeChange = (type: 'groups' | 'individuals') => {
+    setSelectedAudienceType(type);
+    // Clear selection when switching audience types
+    setSelectedAudienceIds([]);
+    setSelectedAudienceNames([]);
+  };
 
 
   const isGuestUser = session.user.role === 'GUEST';
@@ -791,12 +834,14 @@ export default function Home() {
                                 </div>
                                 <CampaignList onEditCampaign={handleEditCampaign} />
                           </div>
-                          <h3 className="text-lg font-medium mb-4 mt-8">WhatsApp Groups</h3>
+                          <h3 className="text-lg font-medium mb-4 mt-8">Select Audience</h3>
                           {!editingCampaign && (
-                            <GroupSelector
+                            <AudienceSelector
                               sessionName={whatsAppSession.sessionName}
-                              selectedGroupId={selectedGroupId}
-                              onGroupSelect={handleGroupSelect}
+                              selectedAudienceIds={selectedAudienceIds}
+                              selectedAudienceType={selectedAudienceType}
+                              onAudienceSelect={handleAudienceSelect}
+                              onAudienceTypeChange={handleAudienceTypeChange}
                             />
                           )}
                           
@@ -812,7 +857,7 @@ export default function Home() {
                             </div>
                           )}
                           
-                          {(selectedGroupId ?? editingCampaign) && (
+                          {(selectedAudienceIds.length || editingCampaign) && (
                             <div className="mt-6 border-t pt-6">
                               <div className="flex justify-between items-center mb-4">
                                 <h4 className="text-lg font-medium">
@@ -1053,7 +1098,7 @@ export default function Home() {
                                     (editingCampaign ? updateCampaign.isPending : createCampaign.isPending) || 
                                     !startDate || !endDate || !messageTemplate || 
                                     (isRecurring && !recurrence) ||
-                                    (!editingCampaign && (!selectedGroupId || !selectedGroupName))
+                                    (!editingCampaign && (!selectedAudienceIds.length || !selectedAudienceNames.length))
                                   }
                                 >
                                   {editingCampaign 

@@ -9,8 +9,8 @@ export const messageCampaignRouter = createTRPCRouter({
   createCampaign: protectedProcedure
     .input(
       z.object({
-        groupId: z.string(),
-        groupName: z.string(),
+        groupId: z.string(), // Can be either group ID or contact ID
+        groupName: z.string(), // Can be either group name or contact name
         sessionId: z.string(),
         title: z.string().optional(), // Optional campaign title
         targetAmount: z.string().optional(), // Optional contribution target amount
@@ -22,6 +22,7 @@ export const messageCampaignRouter = createTRPCRouter({
         isFreeForm: z.boolean().default(false),
         isRecurring: z.boolean(),
         recurrence: z.enum(['DAILY', 'WEEKLY', 'SEMI_MONTHLY', 'MONTHLY', 'SEMI_ANNUALLY', 'ANNUALLY']).default('DAILY'),
+        audienceType: z.enum(['groups', 'individuals']).default('groups'), // New field to distinguish between groups and individuals
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -350,6 +351,7 @@ export const messageCampaignRouter = createTRPCRouter({
         isRecurring: z.boolean(),
         isFreeForm: z.boolean().default(false),
         recurrence: z.enum(['DAILY', 'WEEKLY', 'SEMI_MONTHLY', 'MONTHLY', 'SEMI_ANNUALLY', 'ANNUALLY']).default('DAILY'),
+        audienceType: z.enum(['groups', 'individuals']).default('groups').optional(), // New field to distinguish between groups and individuals
       })
     )
     .mutation(async ({ ctx, input }) => {
