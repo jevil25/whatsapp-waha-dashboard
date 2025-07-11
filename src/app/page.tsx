@@ -264,12 +264,19 @@ export default function Home() {
 
   // Function to generate message preview
   const updateMessagePreview = useCallback(() => {
-    if (!messageTemplate || !startDate || !endDate) {
+    if (!messageTemplate || !startDate) {
       setMessagePreview('');
       return;
     }
 
-    const endDateObj = new Date(endDate);
+    // For one-time campaigns, use startDate as endDate
+    const finalEndDate = !isRecurring ? startDate : endDate;
+    if (isRecurring && !finalEndDate) {
+      setMessagePreview('');
+      return;
+    }
+
+    const endDateObj = new Date(finalEndDate);
     const today = new Date();
     const daysLeft = Math.ceil((endDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     
@@ -283,7 +290,9 @@ export default function Home() {
       }
       
       preview += `Start Date: ${startDate}\n`;
-      preview += `End Date: ${endDate}\n`;
+      if (isRecurring) {
+        preview += `End Date: ${finalEndDate}\n`;
+      }
       
       // Add target amount if provided
       if (targetAmount.trim()) {
@@ -301,7 +310,7 @@ export default function Home() {
     }
     
     setMessagePreview(preview);
-  }, [messageTemplate, startDate, endDate, campaignTitle, targetAmount, isFreeForm]);
+  }, [messageTemplate, startDate, endDate, campaignTitle, targetAmount, isFreeForm, isRecurring]);
 
   // Update preview when dependencies change
   useEffect(() => {
@@ -440,6 +449,9 @@ export default function Home() {
 
     setSubmitStatus(null);
     
+    // For one-time campaigns, ensure end date is same as start date
+    const finalEndDate = !isRecurring ? startDate : endDate;
+    
     if (editingCampaign) {
       // Update existing campaign - still single campaign
       updateCampaign.mutate({
@@ -448,7 +460,7 @@ export default function Home() {
         title: campaignTitle.trim() || undefined,
         targetAmount: targetAmount.trim() || undefined,
         startDate,
-        endDate,
+        endDate: finalEndDate,
         messageTime,
         timeZone,
         messageTemplate,
@@ -479,7 +491,7 @@ export default function Home() {
             title: campaignTitle.trim() || undefined,
             targetAmount: targetAmount.trim() || undefined,
             startDate,
-            endDate,
+            endDate: finalEndDate,
             messageTime,
             timeZone,
             messageTemplate,
@@ -1033,33 +1045,41 @@ export default function Home() {
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                       <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
-                                        📅 Start Date
+                                        📅 {!isRecurring ? 'Send Date' : 'Start Date'}
                                       </label>
                                       <input
                                         type="date"
                                         id="startDate"
                                         value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
+                                        onChange={(e) => {
+                                          setStartDate(e.target.value);
+                                          // For one-time campaigns, set end date same as start date
+                                          if (!isRecurring) {
+                                            setEndDate(e.target.value);
+                                          }
+                                        }}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         min={new Date().toISOString().split('T')[0]}
                                         required
                                       />
                                     </div>
                                     
-                                    <div>
-                                      <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
-                                        📅 End Date
-                                      </label>
-                                      <input
-                                        type="date"
-                                        id="endDate"
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        min={startDate || new Date().toISOString().split('T')[0]}
-                                        required
-                                      />
-                                    </div>
+                                    {isRecurring && (
+                                      <div>
+                                        <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
+                                          📅 End Date
+                                        </label>
+                                        <input
+                                          type="date"
+                                          id="endDate"
+                                          value={endDate}
+                                          onChange={(e) => setEndDate(e.target.value)}
+                                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                          min={startDate || new Date().toISOString().split('T')[0]}
+                                          required
+                                        />
+                                      </div>
+                                    )}
                                   </div>
 
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1219,6 +1239,16 @@ export default function Home() {
                                     </p>
                                   )}
                                   
+                                  {/* {days_left} Usage Note */}
+                                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <p className="text-sm text-blue-800">
+                                      <strong>📅 Dynamic Days Counter:</strong> Use <code className="bg-blue-100 px-1 py-0.5 rounded text-xs font-mono">{"{days_left}"}</code> anywhere in your message to automatically show the number of days remaining until the end date.
+                                    </p>
+                                    <p className="text-xs text-blue-600 mt-1">
+                                      Example: &quot;Only {"{days_left}"} days left to reach our goal!&quot; → &quot;Only 15 days left to reach our goal!&quot;
+                                    </p>
+                                  </div>
+                                  
                                   {sequenceError && (
                                     <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                                       <p className="text-sm text-red-700">{sequenceError}</p>
@@ -1257,7 +1287,7 @@ export default function Home() {
                                   className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg flex items-center space-x-2"
                                   disabled={
                                     (editingCampaign ? updateCampaign.isPending : createCampaign.isPending) || 
-                                    !startDate || !endDate || !messageTemplate || 
+                                    !startDate || (!isRecurring ? false : !endDate) || !messageTemplate || 
                                     (isRecurring && !recurrence) ||
                                     (!editingCampaign && (!selectedAudienceIds.length || !selectedAudienceNames.length))
                                   }
