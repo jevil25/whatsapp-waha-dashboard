@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 'use client';
 
 import { useState } from 'react';
@@ -149,7 +148,7 @@ export default function AdminDashboard() {
 
   if (isSessionLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f0f2f5]">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="animate-pulse flex space-x-2">
           <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
           <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
@@ -165,7 +164,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f0f2f5]">
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <ConfirmationModal
         isOpen={deleteModalOpen}
         onClose={() => {
@@ -184,22 +183,32 @@ export default function AdminDashboard() {
         cancelText="Cancel"
       />
 
-      <div className="bg-[#008069] text-white px-4 py-3 flex justify-between items-center">
-        <div className="flex items-center gap-3">
+      <div className="bg-gradient-to-r from-[#d97809] to-[#d97809] text-white px-4 py-4 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push('/')}
+              className="text-sm bg-white/10 px-4 py-2 rounded-lg hover:bg-white/20 transition-colors backdrop-blur-sm"
+            >
+              ← Back to Dashboard
+            </button>
+            <div className="flex items-center space-x-3">
+              <div className="bg-white/10 p-2 rounded-lg">
+                <span className="text-xl">🌟</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">TrueSenger Admin</h1>
+                <p className="text-sm text-orange-100">TRUEFAM Administration Dashboard</p>
+              </div>
+            </div>
+          </div>
           <button
-            onClick={() => router.push('/')}
-            className="text-sm bg-[#ffffff1a] px-3 py-1.5 rounded-md hover:bg-[#ffffff33] transition-colors"
+            onClick={handleSignOut}
+            className="text-sm bg-white/10 px-4 py-2 rounded-lg hover:bg-white/20 transition-colors backdrop-blur-sm"
           >
-            Back
+            Sign out
           </button>
-          <h1 className="text-xl font-medium">Admin Dashboard</h1>
         </div>
-        <button
-          onClick={handleSignOut}
-          className="text-sm bg-[#ffffff1a] px-3 py-1.5 rounded-md hover:bg-[#ffffff33] transition-colors"
-        >
-          Sign out
-        </button>
       </div>
 
       <div className="max-w-6xl mx-auto p-4">
@@ -340,7 +349,7 @@ export default function AdminDashboard() {
                           approveUser({ userId: user.id });
                         }}
                         disabled={approvingUsers.has(user.id)}
-                        className="text-sm bg-[#008069] text-white px-3 py-1.5 rounded-md hover:bg-[#006d5a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-sm bg-[#d97809] text-white px-3 py-1.5 rounded-md hover:bg-[#b85e07] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {approvingUsers.has(user.id) ? 'Approving...' : 'Approve'}
                       </button>
@@ -376,7 +385,7 @@ export default function AdminDashboard() {
                     id="name"
                     value={newUserName}
                     onChange={(e) => setNewUserName(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#d97809] focus:border-transparent"
                     placeholder="Enter name"
                     required
                   />
@@ -390,7 +399,7 @@ export default function AdminDashboard() {
                     id="email"
                     value={newUserEmail}
                     onChange={(e) => setNewUserEmail(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#d97809] focus:border-transparent"
                     placeholder="Enter email"
                     required
                   />
@@ -404,7 +413,7 @@ export default function AdminDashboard() {
                     id="password"
                     value={newUserPassword}
                     onChange={(e) => setNewUserPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#d97809] focus:border-transparent"
                     placeholder="Enter password"
                     required
                     minLength={8}
@@ -416,7 +425,7 @@ export default function AdminDashboard() {
                 <button
                   type="submit"
                   disabled={isAddingUser}
-                  className="w-full bg-[#008069] text-white px-4 py-2 rounded-md hover:bg-[#006d5a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-[#d97809] text-white px-4 py-2 rounded-md hover:bg-[#b85e07] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isAddingUser ? 'Adding User...' : 'Add User'}
                 </button>
@@ -455,7 +464,7 @@ export default function AdminDashboard() {
                           <p className="text-sm text-gray-500">{user.email}</p>
                         </div>
                         {user.role === 'ADMIN' && (
-                          <span className="text-xs bg-[#008069] text-white px-2 py-0.5 rounded">Admin</span>
+                          <span className="text-xs bg-[#d97809] text-white px-2 py-0.5 rounded">Admin</span>
                         )}
                       </div>
                       {user.role !== 'ADMIN' && (
@@ -466,7 +475,7 @@ export default function AdminDashboard() {
                               makeAdmin({ userId: user.id });
                             }}
                             disabled={makingAdminUsers.has(user.id)}
-                            className="text-xs bg-[#008069] text-white px-2 py-1 rounded hover:bg-[#006d5a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-xs bg-[#d97809] text-white px-2 py-1 rounded hover:bg-[#b85e07] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {makingAdminUsers.has(user.id) ? '...' : 'Admin'}
                           </button>

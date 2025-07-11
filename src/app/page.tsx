@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/prefer-optional-chain */
 'use client';
 
 import Image from 'next/image';
@@ -45,25 +44,56 @@ export default function Home() {
   type RecurrenceType = 'DAILY' | 'WEEKLY' | 'SEMI_MONTHLY' | 'MONTHLY' | 'SEMI_ANNUALLY' | 'ANNUALLY';
   const [recurrence, setRecurrence] = useState<RecurrenceType | undefined>(undefined);
 
-  // Common time zones for the selector
+  // Comprehensive time zones for the selector
   const timeZones = [
+    // North America
     { value: 'America/New_York', label: 'Eastern Time (ET)' },
     { value: 'America/Chicago', label: 'Central Time (CT)' },
     { value: 'America/Denver', label: 'Mountain Time (MT)' },
     { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
     { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
     { value: 'Pacific/Honolulu', label: 'Hawaii Time (HST)' },
+    { value: 'America/Toronto', label: 'Eastern Time - Toronto (ET)' },
+    { value: 'America/Vancouver', label: 'Pacific Time - Vancouver (PT)' },
+    
+    // Europe
     { value: 'Europe/London', label: 'GMT (London)' },
     { value: 'Europe/Paris', label: 'CET (Paris)' },
     { value: 'Europe/Berlin', label: 'CET (Berlin)' },
+    { value: 'Europe/Rome', label: 'CET (Rome)' },
+    { value: 'Europe/Madrid', label: 'CET (Madrid)' },
+    { value: 'Europe/Amsterdam', label: 'CET (Amsterdam)' },
+    
+    // Africa - East Africa Time and others
+    { value: 'Africa/Nairobi', label: 'EAT - East Africa Time (Nairobi)' },
+    { value: 'Africa/Addis_Ababa', label: 'EAT - East Africa Time (Addis Ababa)' },
+    { value: 'Africa/Dar_es_Salaam', label: 'EAT - East Africa Time (Dar es Salaam)' },
+    { value: 'Africa/Kampala', label: 'EAT - East Africa Time (Kampala)' },
+    { value: 'Africa/Lagos', label: 'WAT - West Africa Time (Lagos)' },
+    { value: 'Africa/Accra', label: 'GMT - Ghana Mean Time (Accra)' },
+    { value: 'Africa/Johannesburg', label: 'SAST - South Africa Standard Time' },
+    { value: 'Africa/Cairo', label: 'EET - Eastern European Time (Cairo)' },
+    { value: 'Africa/Casablanca', label: 'WET - Western European Time (Casablanca)' },
+    
+    // Asia
     { value: 'Asia/Tokyo', label: 'JST (Tokyo)' },
     { value: 'Asia/Shanghai', label: 'CST (Shanghai)' },
     { value: 'Asia/Kolkata', label: 'IST (Mumbai)' },
+    { value: 'Asia/Dubai', label: 'GST (Dubai)' },
+    { value: 'Asia/Singapore', label: 'SGT (Singapore)' },
+    { value: 'Asia/Hong_Kong', label: 'HKT (Hong Kong)' },
+    
+    // Australia/Oceania
     { value: 'Australia/Sydney', label: 'AEDT (Sydney)' },
+    { value: 'Australia/Melbourne', label: 'AEDT (Melbourne)' },
+    { value: 'Australia/Perth', label: 'AWST (Perth)' },
+    
+    // Other
     { value: 'UTC', label: 'UTC' },
   ];
 
   const recurrenceOptions = [
+    { value: 'ONE_TIME', label: 'One-Time' },
     { value: 'DAILY', label: 'Daily' },
     { value: 'WEEKLY', label: 'Weekly' },
     { value: 'SEMI_MONTHLY', label: 'Semi-Monthly (Twice per Month)' },
@@ -249,15 +279,15 @@ export default function Home() {
     // Add title if provided
     if (!isFreeForm) {
       if (campaignTitle.trim()) {
-        preview += `Campaign Title: ${campaignTitle}\n`;
+        preview += `Campaign: ${campaignTitle}\n`;
       }
       
-      preview += `Campaign Start Date: ${startDate}\n`;
-      preview += `Campaign End Date: ${endDate}\n`;
+      preview += `Start Date: ${startDate}\n`;
+      preview += `End Date: ${endDate}\n`;
       
       // Add target amount if provided
       if (targetAmount.trim()) {
-        preview += `Contribution Target Amount: ${targetAmount}\n`;
+        preview += `Target Amount: ${targetAmount}\n`;
       }
       
       preview += `Days Remaining: ${daysLeft}\n\n`;
@@ -265,8 +295,8 @@ export default function Home() {
 
     if (messageTemplate.includes("*")){
       const messages = messageTemplate.split('*')[0];
-      preview+= messages?.replace(/{days_left}/g, daysLeft.toString());
-    }else {
+      preview += messages?.replace(/{days_left}/g, daysLeft.toString());
+    } else {
       preview += messageTemplate.replace(/{days_left}/g, daysLeft.toString());
     }
     
@@ -313,58 +343,45 @@ export default function Home() {
     },
   });
 
-  // Handle campaign edit
-  /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/prefer-nullish-coalescing */
+  // Missing functions for edit campaign functionality
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleEditCampaign = (campaign: any) => {
     setEditingCampaign(campaign);
-    // Populate form with existing data
-    setCampaignTitle(campaign.title || '');
-    setTargetAmount(campaign.targetAmount || '');
-    setStartDate(new Date(campaign.startDate).toISOString().split('T')[0] ?? '');
-    setEndDate(new Date(campaign.endDate).toISOString().split('T')[0] ?? '');
-    
-    // Convert sendTimeUtc back to local time format
-    const timeStr = typeof campaign.sendTimeUtc === 'string' ? campaign.sendTimeUtc : campaign.sendTimeUtc.toTimeString();
-    const timeMatch = timeStr.match(/(\d{2}):(\d{2})/);
-    if (timeMatch) {
-      setMessageTime(`${timeMatch[1]}:${timeMatch[2]}`);
-    }
-    
-    // Set time zone (default to Central Time for existing campaigns that don't have it stored)
-    setTimeZone(campaign.timeZone || 'America/Chicago');
-    
-    // Handle message sequence if it exists, otherwise use template as single message
-    if (campaign.template && campaign.template.includes('*')) {
-      setMessageSequence(campaign.template.split('*').map((msg: string) => msg.trim()));
-      setMessageTemplate(campaign.template);
-    } else {
-      setMessageSequence([campaign.template]);
-      setMessageTemplate(campaign.template);
-    }
-    
-    setIsRecurring(campaign.isRecurring || false);
-    setRecurrence(campaign.recurrence || undefined);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setCampaignTitle(campaign.title ?? '');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setTargetAmount(campaign.targetAmount ?? '');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setStartDate(campaign.startDate ?? '');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setEndDate(campaign.endDate ?? '');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setMessageTime(campaign.messageTime ?? '12:00');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setTimeZone(campaign.timeZone ?? 'America/Chicago');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setMessageTemplate(campaign.messageTemplate ?? '');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setIsRecurring(campaign.isRecurring ?? false);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setIsFreeForm(campaign.isFreeForm ?? false);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setRecurrence(campaign.recurrence ?? undefined);
   };
-  /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/prefer-nullish-coalescing */
 
-  // Function to clear edit mode
   const clearEditMode = () => {
     setEditingCampaign(null);
+    setCampaignTitle('');
+    setTargetAmount('');
     setStartDate('');
     setEndDate('');
     setMessageTime('12:00');
     setTimeZone('America/Chicago');
     setMessageTemplate('');
-    setMessagePreview('');
-    setCampaignTitle('');
-    setTargetAmount('');
     setIsRecurring(false);
+    setIsFreeForm(false);
     setRecurrence(undefined);
-    setMessageSequence([]);
-    setSequenceError(null);
-    setSelectedAudienceType('groups');
-    setSelectedAudienceIds([]);
-    setSelectedAudienceNames([]);
+    setSubmitStatus(null);
   };
 
   // Helper function to validate message sequence
@@ -526,6 +543,7 @@ export default function Home() {
     setSelectedAudienceIds(audienceIds);
     setSelectedAudienceNames(audienceNames);
     setSelectedAudienceType(audienceType);
+    setSubmitStatus(null);
   }
 
   const handleAudienceTypeChange = (type: 'groups' | 'individuals') => {
@@ -586,463 +604,588 @@ export default function Home() {
     );
   }
 
-  // Regular user view with WhatsApp style
+  // Regular user view with TrueSenger style
   return (
     <div>
-      <main className="min-h-screen bg-[#f0f2f5]">
-        <div className="bg-[#008069] text-white px-4 py-3 flex justify-between items-center">
-          <h1 className="text-xl font-medium">WhatsApp Group Manager</h1>
-          <div className="flex items-center gap-3">
-            {session.user.role === 'ADMIN' && (
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        {/* TrueSenger Header */}
+        <div className="bg-gradient-to-r from-[#d97809] to-[#d97809] text-white px-4 py-4 shadow-lg">
+          <div className="max-w-6xl mx-auto flex justify-between items-center">
+            <div className="flex items-center space-x-3">
+              <div className="bg-white/10 p-2 rounded-lg">
+                <span className="text-2xl">🌟</span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">TrueSenger</h1>
+                <p className="text-sm text-orange-100">TRUEFAM WhatsApp Message Scheduler</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {session.user.role === 'ADMIN' && (
+                <button
+                  onClick={() => router.push('/admin')}
+                  className="text-sm bg-white/10 px-4 py-2 rounded-lg hover:bg-white/20 transition-colors backdrop-blur-sm"
+                >
+                  Admin Dashboard
+                </button>
+              )}
               <button
-                onClick={() => router.push('/admin')}
-                className="text-sm bg-[#ffffff1a] px-3 py-1.5 rounded-md hover:bg-[#ffffff33] transition-colors"
+                onClick={handleSignOut}
+                className="text-sm bg-white/10 px-4 py-2 rounded-lg hover:bg-white/20 transition-colors backdrop-blur-sm"
               >
-                Admin Dashboard
+                Sign out
               </button>
-            )}
-            <button
-              onClick={handleSignOut}
-              className="text-sm bg-[#ffffff1a] px-3 py-1.5 rounded-md hover:bg-[#ffffff33] transition-colors"
-            >
-              Sign out
-            </button>
+            </div>
           </div>
         </div>
 
-        <div className="max-w-4xl mx-auto p-4">
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
+        <div className="max-w-6xl mx-auto p-6">
+          {/* Connection Status Section */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-[#d97809]">
             {isWhatsAppLoading ? (
               <div className="space-y-4">
                 <div className="animate-pulse space-y-4">
-                  <div className="h-32 bg-gray-100 rounded-lg"></div>
+                  <div className="h-32 rounded-xl" style={{ backgroundColor: '#ffd9b3' }}></div>
                 </div>
               </div>
             ) : whatsAppSession ? (
               <div className="space-y-4">
-                <div className="bg-white border border-gray-200 rounded-lg divide-y">
-                  <div className="p-4">
-                    <h3 className="text-lg font-medium mb-2">WhatsApp Session</h3>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{whatsAppSession.sessionName}</p>
-                        <p className="text-sm text-gray-500">{whatsAppSession.phoneNumber}</p>
+                <div className="bg-gradient-to-r from-[#fff3e0] to-[#ffd9b3] border border-[#d97809] rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#ffd9b3' }}>
+                        <span className="text-xl" style={{ color: '#d97809' }}>📱</span>
                       </div>
-                      {(() => {
-                        if (typeof whatsAppSession.sessionName !== 'string') return null;
-
-                        switch (sessionStatus) {
-                          case 'WORKING':
-                            return (
-                              <div className="flex items-center gap-4">
-                                <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Connected</span>
-                                <button
-                                  onClick={() => logoutSession.mutate({ sessionName: whatsAppSession.sessionName })}
-                                  className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded hover:bg-red-200"
-                                  disabled={logoutSession.isPending}
-                                >
-                                  {logoutSession.isPending ? 'Disconnecting...' : 'Disconnect'}
-                                </button>
-                              </div>
-                            );
-                          case 'STOPPED':
-                          case 'FAILED':
-                            return (
-                              <button
-                                onClick={() => handleRestart(whatsAppSession.sessionName)}
-                                className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded hover:bg-yellow-200"
-                              >
-                                {restartSession.isPending ? 'Restarting...' : 'Click to Restart'}
-                              </button>
-                            );
-                          case 'STARTING':
-                            return <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Starting...</span>;
-                          case 'SCAN_QR_CODE':
-                            return <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Waiting for QR Scan</span>;
-                          default:
-                            return null;
-                        }
-                      })()}
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800">WhatsApp Connected</h3>
+                        <p className="text-sm text-gray-600">{whatsAppSession.phoneNumber}</p>
+                      </div>
                     </div>
+                    {(() => {
+                      if (typeof whatsAppSession.sessionName !== 'string') return null;
+
+                      switch (sessionStatus) {
+                        case 'WORKING':
+                          return (
+                            <div className="flex items-center gap-4">
+                              <span className="text-xs px-3 py-1 rounded-full font-medium" style={{ backgroundColor: '#e6f7e6', color: '#228B22' }}>✅ Connected</span>
+                              <button
+                                onClick={() => logoutSession.mutate({ sessionName: whatsAppSession.sessionName })}
+                                className="text-xs px-3 py-1 rounded-full hover:bg-[#ffe0b2] transition-colors"
+                                style={{ backgroundColor: '#ffd9b3', color: '#d97809' }}
+                                disabled={logoutSession.isPending}
+                              >
+                                {logoutSession.isPending ? 'Disconnecting...' : 'Disconnect'}
+                              </button>
+                            </div>
+                          );
+                        case 'STOPPED':
+                        case 'FAILED':
+                          return (
+                            <button
+                              onClick={() => handleRestart(whatsAppSession.sessionName)}
+                              className="text-xs bg-amber-100 text-amber-800 px-3 py-1 rounded-full hover:bg-amber-200 transition-colors"
+                            >
+                              {restartSession.isPending ? 'Restarting...' : 'Restart'}
+                            </button>
+                          );
+                        case 'STARTING':
+                          return <span className="text-xs px-3 py-1 rounded-full" style={{ backgroundColor: '#ffd9b3', color: '#d97809' }}>🔄 Starting...</span>;
+                        case 'SCAN_QR_CODE':
+                          return <span className="text-xs px-3 py-1 rounded-full" style={{ backgroundColor: '#ffd9b3', color: '#d97809' }}>📱 Waiting for QR Scan</span>;
+                        default:
+                          return null;
+                      }
+                    })()}
                   </div>
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="bg-[#fff3cd] text-[#856404] p-4 rounded-lg border-l-4 border-[#ffeeba]">
-                  <p className="font-medium mb-2">No WhatsApp Session Connected</p>
-                  <p className="text-sm">Connect your WhatsApp account to start managing your groups.</p>
-                </div>
-                <h3 className="text-lg font-medium mb-4">
-                    Connect WhatsApp
-                    <span className="text-xs ml-2 bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                      Status: {sessionStatus ?? 'Not Connected'}
-                    </span>
-                  </h3>
-                  
-                  {error ? (
-                    <div className="bg-red-100 text-red-800 p-4 rounded-lg mb-4">
-                      <p>{error}</p>
+                <div className="bg-gradient-to-r from-[#ffd9b3] to-[#fff3e0] border border-[#d97809] rounded-xl p-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#ffd9b3' }}>
+                      <span className="text-xl" style={{ color: '#d97809' }}>⚠️</span>
                     </div>
-                  ) : null}
-
-                    {!isConnecting && (
-                      <button
-                        onClick={handleConnect}
-                        className="w-full bg-[#008069] text-white px-4 py-2 rounded-lg hover:bg-[#006d5b] transition-colors"
-                        disabled={initSession.isPending}
-                      >
-                        {initSession.isPending ? 'Initializing...' : 'Connect WhatsApp'}
-                      </button>
-                    )}
+                    <div>
+                      <p className="font-semibold text-amber-800">No WhatsApp Connection</p>
+                      <p className="text-sm text-amber-700">Connect your WhatsApp account to start managing your campaigns.</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Connect WhatsApp</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Status: <span className="font-medium">{sessionStatus ?? 'Not Connected'}</span>
+                  </p>
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+                      <p className="text-red-700 font-medium">{error}</p>
+                    </div>
+                  )}
+                  {!isConnecting && (
+                    <button
+                      onClick={handleConnect}
+                      style={{ background: '#d97809' }}
+                      className="text-white px-6 py-3 rounded-xl hover:bg-[#b85e07] transition-all shadow-lg font-medium"
+                      disabled={initSession.isPending}
+                    >
+                      {initSession.isPending ? 'Initializing...' : '📱 Connect WhatsApp'}
+                    </button>
+                  )}
+                  
+                </div>
               </div>
             )}
-              <div className="space-y-4 mt-6">
-                <div className="bg-white p-6 rounded-lg border border-gray-200">
-                      {sessionStatus === 'STARTING' && (
-                        <div className="flex items-center justify-center p-8">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#008069]"></div>
-                          <span className="ml-3 text-sm text-gray-600">
-                            Starting WhatsApp session...
-                          </span>
-                        </div>
-                      )}
+            {/* QR Code and Session Status */}
+            <div className="space-y-4 mt-6">
+              <div className="bg-white rounded-2xl shadow-lg border border-[#d97809] overflow-visible">
+                {sessionStatus === 'STARTING' && (
+                  <div className="flex items-center justify-center p-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: '#d97809' }}></div>
+                    <span className="ml-3 text-sm text-gray-600">
+                      Starting WhatsApp session...
+                    </span>
+                  </div>
+                )}
 
-                      {sessionStatus === 'SCAN_QR_CODE' && (
-                        <div className="space-y-4 mt-4">
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <h4 className="font-medium mb-2">Scan QR Code</h4>
-                            <ol className="list-decimal list-inside text-sm space-y-1 text-gray-600 mb-4">
-                              <li>Open WhatsApp on your phone</li>
-                              <li>Tap Menu (⋮) or Settings</li>
-                              <li>Select Linked Devices</li>
-                              <li>Tap on &quot;Link a Device&quot;</li>
-                              <li>Point your phone to this screen to scan the code</li>
-                            </ol>
-                            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
-                              <div className="flex">
-                                <div className="flex-shrink-0">
-                                  <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                                  </svg>
-                                </div>
-                                <div className="ml-3">
-                                  <p className="text-sm text-blue-700">
-                                    After scanning, if you see the WhatsApp chat screen but the status doesn&apos;t show as &quot;Connected&quot;, please refresh the page.
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex flex-col items-center">
-                                <div className="relative w-[520px] h-[400px] bg-white border-2 border-gray-300 rounded-lg p-4">
-                                {whatsAppSession?.sessionName ? (
-                                  <Image 
-                                    key={screenshotKey}
-                                    src={`/api/screenshot?session=${whatsAppSession.sessionName}&_=${screenshotKey}`}
-                                    alt="WhatsApp Screenshot"
-                                    fill
-                                    priority
-                                    style={{ objectFit: 'contain' }}
-                                    className="rounded-lg"
-                                    onError={(e) => {
-                                      e.currentTarget.style.display = 'none';
-                                    }}
-                                    unoptimized={true}
-                                  />
-                                ) : (
-                                  <div className="flex items-center justify-center h-full">
-                                  <p className="text-sm text-gray-500">Waiting for session...</p>
-                                  </div>
-                                )}
-                                </div>
-                              <div className="mt-4 flex items-center justify-between w-full">
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={handleRefreshScreen}
-                                    className="text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-200 transition-colors flex items-center gap-2"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                    </svg>
-                                    Refresh Preview
-                                  </button>
-                                  <p className="text-sm text-gray-500">Auto-refreshes every 5s</p>
-                                </div>
-                                {whatsAppSession?.sessionName && (
-                                  <button
-                                    onClick={() => handleRestart(whatsAppSession.sessionName)}
-                                    className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1.5 rounded-md hover:bg-yellow-200 transition-colors flex items-center gap-2"
-                                    disabled={restartSession.isPending}
-                                  >
-                                    {restartSession.isPending ? (
-                                      <>
-                                        <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                        </svg>
-                                        Restarting...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                        </svg>
-                                        Restart Session
-                                      </>
-                                    )}
-                                  </button>
-                                )}
-                              </div>
+                {sessionStatus === 'SCAN_QR_CODE' && (
+                  <div className="p-6">
+                    <div className="bg-gradient-to-r from-[#fff3e0] to-[#ffd9b3] rounded-xl p-6 mb-6">
+                      <h4 className="font-semibold text-gray-800 mb-4 text-center">📱 Scan QR Code to Connect</h4>
+                      <div className="space-y-6">
+                        <div className="text-sm text-gray-700">
+                          <p className="font-medium mb-2">Follow these steps:</p>
+                          <ol className="list-decimal list-inside space-y-1 text-sm">
+                            <li>Open WhatsApp on your phone</li>
+                            <li>Tap Menu (⋮) or Settings</li>
+                            <li>Select &quot;Linked Devices&quot;</li>
+                            <li>Tap &quot;Link a Device&quot;</li>
+                            <li>Point your camera at the QR code</li>
+                          </ol>
+                        </div>
+                        <div className="bg-[#fff3e0] border border-[#d97809] rounded-lg p-3">
+                          <div className="flex items-start">
+                            <div className="mr-2" style={{ color: '#d97809' }}>💡</div>
+                            <div>
+                              <p className="text-sm" style={{ color: '#d97809' }}>
+                                <strong>Tip:</strong> If the status doesn&apos;t change to &quot;Connected&quot; after scanning, please refresh the page.
+                              </p>
                             </div>
                           </div>
                         </div>
-                      )}
+                        <div className="flex flex-col items-center">
+                          <div className="relative w-[600px] h-[400px] bg-white border-2 rounded-xl p-4 shadow-sm" style={{ borderColor: '#d97809' }}>
+                            {whatsAppSession?.sessionName ? (
+                              <Image 
+                                key={screenshotKey}
+                                src={`/api/screenshot?session=${whatsAppSession.sessionName}&_=${screenshotKey}`}
+                                alt="WhatsApp QR Code"
+                                fill
+                                priority
+                                style={{ objectFit: 'contain' }}
+                                className="rounded-lg"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                                unoptimized={true}
+                              />
+                            ) : (
+                              <div className="flex items-center justify-center h-full">
+                                <p className="text-sm text-gray-500">Loading QR code...</p>
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-4 flex items-center gap-3">
+                            <button
+                              onClick={handleRefreshScreen}
+                              className="text-sm px-3 py-2 rounded-lg hover:bg-[#ffe0b2] transition-colors flex items-center gap-2"
+                              style={{ backgroundColor: '#ffd9b3', color: '#d97809' }}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Refresh
+                            </button>
+                            <span className="text-sm text-gray-500">Auto-refreshes every 15s</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                      {(sessionStatus === 'STOPPED' || sessionStatus === 'FAILED') && (
-                        <div className="bg-yellow-100 text-yellow-800 p-4 rounded-lg">
-                          <p className="font-medium mb-2">Session {sessionStatus === 'STOPPED' ? 'Stopped' : 'Failed'}</p>
-                          <p className="text-sm mb-4">
+                {(sessionStatus === 'STOPPED' || sessionStatus === 'FAILED') && (
+                  <div className="p-6">
+                    <div className="bg-gradient-to-r from-[#ffd9b3] to-[#fff3e0] border border-[#d97809] rounded-xl p-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#ffd9b3' }}>
+                          <span className="text-xl" style={{ color: '#d97809' }}>⚠️</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-amber-800">Session {sessionStatus === 'STOPPED' ? 'Stopped' : 'Failed'}</p>
+                          <p className="text-sm text-amber-700">
                             {sessionStatus === 'STOPPED'
                               ? 'The WhatsApp session is currently stopped.'
                               : 'There was an error with the WhatsApp session.'}
                           </p>
-                          {currentSessionName && (
-                            <button
-                              onClick={() => handleRestart(currentSessionName)}
-                              className="bg-yellow-200 text-yellow-800 px-4 py-2 rounded hover:bg-yellow-300 transition-colors"
-                              disabled={restartSession.isPending}
-                            >
-                              {restartSession.isPending ? 'Restarting...' : 'Restart Session'}
-                            </button>
-                          )}
                         </div>
-                      )}
+                        {currentSessionName && (
+                          <button
+                            onClick={() => handleRestart(currentSessionName)}
+                            className="px-4 py-2 rounded-lg hover:bg-[#ffe0b2] transition-colors font-medium"
+                            style={{ backgroundColor: '#ffd9b3', color: '#d97809' }}
+                            disabled={restartSession.isPending}
+                          >
+                            {restartSession.isPending ? 'Restarting...' : 'Restart'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                      {sessionStatus === 'WORKING' && whatsAppSession?.sessionName && (
-                        <div className="mt-6">
-                          <div className="">
-                                <div className="flex justify-between items-center mb-4">
-                                  <h4 className="text-lg font-medium">Active Campaigns</h4>
-                                  <button
-                                    onClick={() => setIsCompletedCampaignsOpen(true)}
-                                    className="text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-200 transition-colors flex items-center gap-2"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                    View Completed Campaigns
-                                  </button>
-                                </div>
-                                <CampaignList onEditCampaign={handleEditCampaign} />
+                {/* Main TrueSenger Form */}
+                {sessionStatus === 'WORKING' && whatsAppSession?.sessionName && (
+                  <div className="space-y-6">
+                    {/* Active Campaigns Section */}
+                    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+                      <div className="flex justify-between items-center mb-6">
+                        <h4 className="text-xl font-semibold text-gray-800 flex items-center">
+                          <span className="mr-2">📊</span>
+                          Active Campaigns
+                        </h4>
+                        <button
+                          onClick={() => setIsCompletedCampaignsOpen(true)}
+                          className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 font-medium"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                          View Completed
+                        </button>
+                      </div>
+                      <CampaignList onEditCampaign={handleEditCampaign} />
+                    </div>
+
+                    {/* TrueSenger Message Scheduler */}
+                    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-visible">
+                      <div className="bg-gradient-to-r from-[#d97809] to-[#d97809] text-white p-6">
+                        <div className="flex items-center space-x-3">
+                          <div className="bg-white/20 p-2 rounded-lg">
+                            <span className="text-2xl">🌟</span>
                           </div>
-                          <h3 className="text-lg font-medium mb-4 mt-8">Select Audience</h3>
-                          {!editingCampaign && (
-                            <AudienceSelector
-                              sessionName={whatsAppSession.sessionName}
-                              selectedAudienceIds={selectedAudienceIds}
-                              selectedAudienceType={selectedAudienceType}
-                              onAudienceSelect={handleAudienceSelect}
-                              onAudienceTypeChange={handleAudienceTypeChange}
-                            />
-                          )}
-                          
-                          {editingCampaign && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                              <p className="text-sm text-blue-800">
-                                {/* eslint-disable-next-line @typescript-eslint/no-unsafe-member-access */}
-                                <strong>Editing campaign for group:</strong> {editingCampaign.group?.groupName}
-                              </p>
-                              <p className="text-xs text-blue-600 mt-1">
-                                Note: The group cannot be changed when editing a campaign
-                              </p>
+                          <div>
+                            <h3 className="text-2xl font-bold">TrueSenger WhatsApp Message Scheduler</h3>
+                            <p className="text-blue-100 mt-1">Create and schedule your WhatsApp campaigns</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-6 overflow-visible">
+                        {/* 1. Audience Settings */}
+                        <div className="mb-8">
+                          <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <span className="mr-2">1️⃣</span>
+                            <span className="mr-2">👥</span>
+                            Audience Settings
+                          </h4>
+                              <div className="bg-gray-50 rounded-xl p-4">
+                            <p className="text-sm text-gray-700 mb-3 font-medium">Select who you want to send the message to:</p>
+                            <div className="space-y-2">
+                              <label className="flex items-center cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="audienceType"
+                                  value="groups"
+                                  checked={selectedAudienceType === 'groups'}
+                                  onChange={() => handleAudienceTypeChange('groups')}
+                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">🔘 Groups</span>
+                              </label>
+                              <label className="flex items-center cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="audienceType"
+                                  value="individuals"
+                                  checked={selectedAudienceType === 'individuals'}
+                                  onChange={() => handleAudienceTypeChange('individuals')}
+                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">🔘 Individuals (Max 15 recipients per campaign)</span>
+                              </label>
                             </div>
-                          )}
-                          
-                          {(selectedAudienceIds.length || editingCampaign) && (
-                            <div className="mt-6 border-t pt-6">
-                              <div className="flex justify-between items-center mb-4">
-                                <h4 className="text-lg font-medium">
-                                  {editingCampaign ? 'Edit Campaign' : 'Schedule Messages'}
-                                </h4>
-                                {editingCampaign && (
-                                  <button
-                                    onClick={clearEditMode}
-                                    className="text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-200 transition-colors"
-                                  >
-                                    Cancel Edit
-                                  </button>
-                                )}
+                          </div>
+                        </div>
+
+                        {/* 2. Recipient Selection */}
+                        <div className="mb-8">
+                          <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <span className="mr-2">2️⃣</span>
+                            <span className="mr-2">📌</span>
+                            Recipient Selection
+                          </h4>
+                              <div className="bg-gray-50 rounded-xl p-4">
+                            <p className="text-sm text-gray-700 mb-3 font-medium">Select Group(s) or Individual(s):</p>
+                            {selectedAudienceType === 'individuals' && (
+                              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p className="text-sm text-blue-700">✅ <strong>Note:</strong> You may select up to 15 individuals per campaign.</p>
                               </div>
-                              
-                              {submitStatus && (
-                                <div className={`mb-4 p-4 rounded-lg ${
-                                  submitStatus.type === 'success' 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-red-100 text-red-800'
-                                }`}>
-                                  {submitStatus.message}
+                            )}
+                            {!editingCampaign && (
+                              <AudienceSelector
+                                sessionName={whatsAppSession.sessionName}
+                                selectedAudienceIds={selectedAudienceIds}
+                                selectedAudienceType={selectedAudienceType}
+                                onAudienceSelect={handleAudienceSelect}
+                                onAudienceTypeChange={handleAudienceTypeChange}
+                              />
+                            )}
+                            {editingCampaign && (
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <p className="text-sm text-blue-800">
+                                  {/* eslint-disable-next-line @typescript-eslint/no-unsafe-member-access */}
+                                  <strong>Editing campaign for group:</strong> {editingCampaign.group?.groupName}
+                                </p>
+                                <p className="text-xs text-blue-600 mt-1">
+                                  Note: The group cannot be changed when editing a campaign
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Status Messages */}
+                        {submitStatus && (
+                          <div className={`p-4 rounded-xl ${
+                            submitStatus.type === 'success' 
+                              ? 'bg-green-50 border border-green-200 text-green-800' 
+                              : 'bg-red-50 border border-red-200 text-red-800'
+                          }`}>
+                            <div className="flex items-center">
+                              <span className="mr-2">
+                                {submitStatus.type === 'success' ? '✅' : '❌'}
+                              </span>
+                              {submitStatus.message}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Show form only if audience is selected or editing */}
+                        {(selectedAudienceIds.length || editingCampaign) && (
+                          <div className="space-y-8">
+                            {/* Form Header */}
+                            <div className="flex justify-between items-center">
+                              <h4 className="text-xl font-semibold text-gray-800">
+                                {editingCampaign ? '✏️ Edit Campaign' : '📝 Create New Campaign'}
+                              </h4>
+                              {editingCampaign && (
+                                <button
+                                  onClick={clearEditMode}
+                                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                                >
+                                  Cancel Edit
+                                </button>
+                              )}
+                            </div>
+
+                            <form className="space-y-8" onSubmit={handleSubmit}>
+                              {/* 3. Message Frequency & Timing */}
+                              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+                                <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                                  <span className="mr-2">3️⃣</span>
+                                  <span className="mr-2">⏰</span>
+                                  Message Frequency & Timing
+                                </h4>
+                                
+                                <div className="space-y-4">
+                                  {/* Frequency Options */}
+                                  <div>
+                                    <p className="text-sm text-gray-700 mb-3 font-medium">Frequency Options: Select how often you want messages sent:</p>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                      {recurrenceOptions.map((option) => (
+                                        <label key={option.value} className="flex items-center cursor-pointer bg-white rounded-lg p-3 border border-gray-200 hover:border-blue-300 transition-colors">
+                                          <input
+                                            type="radio"
+                                            name="frequency"
+                                            value={option.value}
+                                            checked={option.value === 'ONE_TIME' ? !isRecurring : (isRecurring && recurrence === option.value)}
+                                            onChange={() => {
+                                              if (option.value === 'ONE_TIME') {
+                                                setIsRecurring(false);
+                                                setRecurrence(undefined);
+                                              } else {
+                                                setIsRecurring(true);
+                                                setRecurrence(option.value as RecurrenceType);
+                                              }
+                                              setSequenceError(null);
+                                            }}
+                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                                          />
+                                          <span className="ml-2 text-sm text-gray-700">🔘 {option.label}</span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* Date and Time Selection */}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                      <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
+                                        📅 Start Date
+                                      </label>
+                                      <input
+                                        type="date"
+                                        id="startDate"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        min={new Date().toISOString().split('T')[0]}
+                                        required
+                                      />
+                                    </div>
+                                    
+                                    <div>
+                                      <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
+                                        📅 End Date
+                                      </label>
+                                      <input
+                                        type="date"
+                                        id="endDate"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        min={startDate || new Date().toISOString().split('T')[0]}
+                                        required
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                      <label htmlFor="messageTime" className="block text-sm font-medium text-gray-700 mb-2">
+                                        🕒 Time to Send
+                                      </label>
+                                      <input
+                                        type="time"
+                                        id="messageTime"
+                                        value={messageTime}
+                                        onChange={(e) => setMessageTime(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
+                                      />
+                                    </div>
+                                    
+                                    <div>
+                                      <label htmlFor="timeZone" className="block text-sm font-medium text-gray-700 mb-2">
+                                        🌍 Time Zone
+                                      </label>
+                                      <select
+                                        id="timeZone"
+                                        value={timeZone}
+                                        onChange={(e) => setTimeZone(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
+                                      >
+                                        {timeZones.map((tz) => (
+                                          <option key={tz.value} value={tz.value}>
+                                            {tz.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* 4. Message Type */}
+                              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
+                                <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                                  <span className="mr-2">4️⃣</span>
+                                  <span className="mr-2">📝</span>
+                                  Message Type
+                                </h4>
+                                
+                                <div className="space-y-3">
+                                  <p className="text-sm text-gray-700 font-medium">Message Format:</p>
+                                  <div className="space-y-2">
+                                    <label className="flex items-center cursor-pointer bg-white rounded-lg p-3 border border-gray-200 hover:border-green-300 transition-colors">
+                                      <input
+                                        type="radio"
+                                        name="messageType"
+                                        checked={!isFreeForm}
+                                        onChange={() => setIsFreeForm(false)}
+                                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                                      />
+                                      <span className="ml-2 text-sm text-gray-700">🔘 Structured Message</span>
+                                    </label>
+                                    <label className="flex items-center cursor-pointer bg-white rounded-lg p-3 border border-gray-200 hover:border-green-300 transition-colors">
+                                      <input
+                                        type="radio"
+                                        name="messageType"
+                                        checked={isFreeForm}
+                                        onChange={() => setIsFreeForm(true)}
+                                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                                      />
+                                      <span className="ml-2 text-sm text-gray-700">🔘 Free Form Message</span>
+                                    </label>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* 5. Structured Message Fields */}
+                              {!isFreeForm && (
+                                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
+                                  <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                                    <span className="mr-2">5️⃣</span>
+                                    <span className="mr-2">📣</span>
+                                    Campaign Details
+                                  </h4>
+                                  
+                                  <div className="space-y-4">
+                                    <div>
+                                      <label htmlFor="campaignTitle" className="block text-sm font-medium text-gray-700 mb-2">
+                                        Campaign Title
+                                      </label>
+                                      <input
+                                        type="text"
+                                        id="campaignTitle"
+                                        value={campaignTitle}
+                                        onChange={(e) => setCampaignTitle(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        placeholder="e.g., Support for the Family of Opuk Ondiek"
+                                      />
+                                    </div>
+                                    
+                                    <div>
+                                      <label htmlFor="targetAmount" className="block text-sm font-medium text-gray-700 mb-2">
+                                        Contribution Target Amount <span className="text-gray-500">(optional)</span>
+                                      </label>
+                                      <input
+                                        type="text"
+                                        id="targetAmount"
+                                        value={targetAmount}
+                                        onChange={(e) => setTargetAmount(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        placeholder="e.g., $10,000"
+                                      />
+                                    </div>
+                                  </div>
                                 </div>
                               )}
-                              
-                              <form className="space-y-4" onSubmit={handleSubmit}>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div>
-                                    <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
-                                      Start Date
-                                    </label>
-                                    <input
-                                      type="date"
-                                      id="startDate"
-                                      value={startDate}
-                                      onChange={(e) => setStartDate(e.target.value)}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
-                                      min={new Date().toISOString().split('T')[0]}
-                                      required
-                                    />
-                                  </div>
-                                  
-                                  <div>
-                                    <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
-                                      End Date
-                                    </label>
-                                    <input
-                                      type="date"
-                                      id="endDate"
-                                      value={endDate}
-                                      onChange={(e) => setEndDate(e.target.value)}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
-                                      min={startDate || new Date().toISOString().split('T')[0]}
-                                      required
-                                    />
-                                  </div>
-                                </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div>
-                                    <label htmlFor="campaignTitle" className="block text-sm font-medium text-gray-700 mb-1">
-                                      Campaign Title
-                                      <span className="text-xs text-gray-500 ml-2">(Optional)</span>
-                                    </label>
-                                    <input
-                                      type="text"
-                                      id="campaignTitle"
-                                      value={campaignTitle}
-                                      onChange={(e) => setCampaignTitle(e.target.value)}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
-                                      placeholder="e.g., Support for the Family of Opuk Ondiek"
-                                    />
-                                  </div>
-                                  
-                                  <div>
-                                    <label htmlFor="targetAmount" className="block text-sm font-medium text-gray-700 mb-1">
-                                      Contribution Target Amount
-                                      <span className="text-xs text-gray-500 ml-2">(Optional)</span>
-                                    </label>
-                                    <input
-                                      type="text"
-                                      id="targetAmount"
-                                      value={targetAmount}
-                                      onChange={(e) => setTargetAmount(e.target.value)}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
-                                      placeholder="e.g., $10,000"
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div>
-                                    <label htmlFor="messageTime" className="block text-sm font-medium text-gray-700 mb-1">
-                                      Time to Send
-                                    </label>
-                                    <input
-                                      type="time"
-                                      id="messageTime"
-                                      value={messageTime}
-                                      onChange={(e) => setMessageTime(e.target.value)}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
-                                      required
-                                    />
-                                  </div>
-                                  
-                                  <div>
-                                    <label htmlFor="timeZone" className="block text-sm font-medium text-gray-700 mb-1">
-                                      Time Zone
-                                    </label>
-                                    <select
-                                      id="timeZone"
-                                      value={timeZone}
-                                      onChange={(e) => setTimeZone(e.target.value)}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
-                                      required
-                                    >
-                                      {timeZones.map((tz) => (
-                                        <option key={tz.value} value={tz.value}>
-                                          {tz.label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    id="isRecurring"
-                                    checked={isRecurring}
-                                    onChange={(e) => {
-                                      setIsRecurring(e.target.checked);
-                                      if (!e.target.checked) {
-                                        setRecurrence(undefined);
-                                        setSequenceError(null);
-                                      }
-                                    }}
-                                    className="h-4 w-4 text-[#008069] focus:ring-[#008069] border-gray-300 rounded"
-                                  />
-                                  <label htmlFor="isRecurring" className="text-sm text-gray-700">
-                                    Recurring Messages
-                                  </label>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    id="isFreeForm"
-                                    checked={isFreeForm}
-                                    onChange={(e) => setIsFreeForm(e.target.checked)}
-                                    className="h-4 w-4 text-[#008069] focus:ring-[#008069] border-gray-300 rounded"
-                                  />
-                                  <label htmlFor="isFreeForm" className="text-sm font-medium text-gray-700">
-                                    Make this a free form message campaign
-                                  </label>
-                                </div>
-
-                                {isRecurring && (
-                                  <div>
-                                    <label htmlFor="recurrence" className="block text-sm font-medium text-gray-700 mb-1">
-                                      Recurrence Pattern
-                                    </label>
-                                    <select
-                                      id="recurrence"
-                                      value={recurrence ?? ''}
-                                      onChange={(e) => {
-                                        setRecurrence(e.target.value as RecurrenceType);
-                                        setSequenceError(null);
-                                      }}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
-                                      required={isRecurring}
-                                    >
-                                      <option value="">Select a pattern</option>
-                                      {recurrenceOptions.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                          {option.label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                )}
-
+                              {/* 6. Message Content */}
+                              <div className="bg-gradient-to-r from-[#fff3e0] to-[#ffd9b3] rounded-xl p-6 border border-[#d97809]">
+                                <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                                  <span className="mr-2">6️⃣</span>
+                                  <span className="mr-2">📨</span>
+                                  {isFreeForm ? 'Free Form Message Block' : 'Message Content'}
+                                </h4>
+                                
                                 <div>
-                                  <label htmlFor="messageTemplate" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Message Template
+                                  <label htmlFor="messageTemplate" className="block text-sm font-medium text-gray-700 mb-2">
+                                    {isFreeForm ? 'Message Box' : 'Message Template'}
                                   </label>
                                   <div className="relative">
                                     <textarea
@@ -1056,44 +1199,62 @@ export default function Home() {
                                           validateMessageSequence(messages);
                                         }
                                       }}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069] min-h-[120px]"
-                                      placeholder={isRecurring ? "Enter messages separated by * (asterisk). Example:\nMessage for first period * Message for second period" : "Enter your message"}
+                                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent min-h-[150px]"
+                                      placeholder={isFreeForm ? 
+                                        "Type up to 12 unique messages separated by an asterisk *. These will be sent in order based on the schedule.\n\nExample:\nFirst message * Second message * Third message" :
+                                        "Enter your message template. Use {days_left} to show remaining days.\n\nExample:\nDear members, we have {days_left} days left for our campaign..."
+                                      }
                                       required
                                     />
-                                    {isRecurring && recurrence && (
-                                      <div className="absolute right-2 bottom-2 text-xs text-gray-500">
-                                        {messageSequence.length} / {recurrence === 'DAILY' ? '1' :
-                                          recurrence === 'WEEKLY' ? '7' :
-                                          recurrence === 'SEMI_MONTHLY' ? '2' :
-                                          recurrence === 'MONTHLY' ? '12' :
-                                          recurrence === 'SEMI_ANNUALLY' ? '2' : '1'} messages
+                                    {isRecurring && recurrence && messageTemplate.includes('*') && (
+                                      <div className="absolute right-3 bottom-3 text-xs text-gray-500 bg-white px-2 py-1 rounded border">
+                                        {messageSequence.length} messages
                                       </div>
                                     )}
                                   </div>
-                                  {sequenceError && (
-                                    <p className="mt-1 text-sm text-red-600">
-                                      {sequenceError}
+                                  
+                                  {isFreeForm && (
+                                    <p className="mt-2 text-sm text-gray-600">
+                                      💡 <strong>Tip:</strong> Use TRUEFAM&apos;s brand colors to enhance recognition and trust
                                     </p>
                                   )}
-                                  {isRecurring && !sequenceError && (
-                                    <p className="mt-1 text-sm text-gray-500">
-                                      Separate multiple messages with an asterisk (*). Each message will be sent according to the recurrence pattern.
-                                    </p>
+                                  
+                                  {sequenceError && (
+                                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                      <p className="text-sm text-red-700">{sequenceError}</p>
+                                    </div>
+                                  )}
+                                  
+                                  {isRecurring && !sequenceError && messageTemplate.includes('*') && (
+                                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                      <p className="text-sm text-blue-700">
+                                        ✅ Separate multiple messages with an asterisk (*). Each message will be sent according to the recurrence pattern.
+                                      </p>
+                                    </div>
                                   )}
                                 </div>
+                              </div>
 
-                                {messageTemplate && messagePreview && (
-                                  <div className="bg-gray-50 p-4 rounded-lg">
-                                    <h5 className="text-sm font-medium text-gray-700 mb-2">Message Preview</h5>
-                                    <div className="bg-white p-3 rounded border border-gray-200 whitespace-pre-wrap">
+                              {/* Message Preview */}
+                              {messageTemplate && messagePreview && (
+                                <div className="bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl p-6 border border-gray-200">
+                                  <h5 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+                                    <span className="mr-2">👁️</span>
+                                    Message Preview
+                                  </h5>
+                                  <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                    <div className="whitespace-pre-wrap text-sm text-gray-700 font-mono leading-relaxed">
                                       {messagePreview}
                                     </div>
                                   </div>
-                                )}
+                                </div>
+                              )}
 
+                              {/* Submit Button */}
+                              <div className="flex justify-end pt-4">
                                 <button
                                   type="submit"
-                                  className="w-full bg-[#008069] text-white px-4 py-2 rounded-lg hover:bg-[#006d5b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg flex items-center space-x-2"
                                   disabled={
                                     (editingCampaign ? updateCampaign.isPending : createCampaign.isPending) || 
                                     !startDate || !endDate || !messageTemplate || 
@@ -1101,30 +1262,42 @@ export default function Home() {
                                     (!editingCampaign && (!selectedAudienceIds.length || !selectedAudienceNames.length))
                                   }
                                 >
-                                  {editingCampaign 
-                                    ? (updateCampaign.isPending ? 'Updating Campaign...' : 'Update Campaign')
-                                    : (createCampaign.isPending ? 'Creating Campaign...' : 'Schedule Messages')
-                                  }
+                                  <span>
+                                    {editingCampaign 
+                                      ? (updateCampaign.isPending ? '⏳ Updating...' : '✏️ Update Campaign')
+                                      : (createCampaign.isPending ? '⏳ Creating...' : '🚀 Schedule Messages')
+                                    }
+                                  </span>
                                 </button>
-                              </form>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="text-center mt-4">
-                        <span className="text-sm text-gray-500">
-                          Status: {sessionStatus ?? 'Initializing...'}
-                        </span>
+                              </div>
+                            </form>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
+                )}
+
+                <div className="text-center mt-6 text-sm text-gray-500">
+                  <span>Status: {sessionStatus ?? 'Initializing...'}</span>
                 </div>
               </div>
-            </main>
-          <CompletedCampaignsModal
-            isOpen={isCompletedCampaignsOpen}
-            onClose={() => setIsCompletedCampaignsOpen(false)}
-          />
+            </div>
+          </div>
+          
+          {/* TRUEFAM Footer */}
+          <footer className="mt-8 text-center py-6 border-t border-gray-200">
+            <div className="text-sm text-gray-600">
+              © <span id="year">{new Date().getFullYear()}</span> TRUEFAM Welfare LLC. All rights reserved.
+            </div>
+          </footer>
         </div>
-)}
+      </main>
+      
+      <CompletedCampaignsModal
+        isOpen={isCompletedCampaignsOpen}
+        onClose={() => setIsCompletedCampaignsOpen(false)}
+      />
+    </div>
+  );
+}

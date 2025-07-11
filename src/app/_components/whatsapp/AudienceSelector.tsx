@@ -21,6 +21,7 @@ export function AudienceSelector({
   const [selectedGroupsState, setSelectedGroupsState] = useState<{id: string, name: string}[]>([]);
   const [selectedContactsState, setSelectedContactsState] = useState<{id: string, name: string, number?: string}[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   // Groups API
@@ -103,9 +104,24 @@ export function AudienceSelector({
       }
     };
 
+    const handleScroll = () => {
+      // No longer needed since we're using absolute positioning
+    };
+
+    const handleResize = () => {
+      // No longer needed since we're using absolute positioning
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isOpen]);
 
   const handleScroll = () => {
     if (!listRef.current) return;
@@ -128,6 +144,10 @@ export function AudienceSelector({
     } else {
       void refetchContacts();
     }
+  };
+
+  const handleToggleDropdown = () => {
+    setIsOpen(!isOpen);
   };
 
   const handleAudienceTypeChange = (type: 'groups' | 'individuals') => {
@@ -227,7 +247,7 @@ export function AudienceSelector({
           id="audienceType"
           value={selectedAudienceType}
           onChange={(e) => handleAudienceTypeChange(e.target.value as 'groups' | 'individuals')}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008069]"
+          className="w-full px-3 py-2 border-2 border-[#d97809] rounded-md focus:outline-none focus:ring-2 focus:ring-[#d97809] bg-white"
         >
           <option value="groups">Groups</option>
           <option value="individuals">Individuals</option>
@@ -238,8 +258,9 @@ export function AudienceSelector({
       <div className="relative" ref={dropdownRef}>
         <div className="flex flex-col space-y-2">
           <div 
-            onClick={() => setIsOpen(!isOpen)}
-            className={`flex items-center justify-between w-full px-4 py-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-[#00a884] transition-colors ${isLoading ? 'opacity-75' : ''}`}
+            ref={buttonRef}
+            onClick={handleToggleDropdown}
+            className={`flex items-center justify-between w-full px-4 py-3 bg-white border-2 border-[#d97809] rounded-lg cursor-pointer hover:border-[#b85e07] hover:bg-[#fff3e0] transition-colors ${isLoading ? 'opacity-75' : ''}`}
           >
             <div className="flex-1 truncate">
               {selectedAudienceType === 'groups' ? (
@@ -266,8 +287,16 @@ export function AudienceSelector({
           </div>
 
           {isOpen && (
-            <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200">
-              <div className="p-2 border-b border-gray-200">
+            <div 
+              className="absolute z-[9999] bg-white rounded-lg shadow-2xl border-2 border-[#d97809] max-h-96 overflow-hidden"
+              style={{
+                top: '100%',
+                left: '0',
+                right: '0',
+                marginTop: '4px'
+              }}
+            >
+              <div className="p-3 border-b border-[#d97809] bg-gradient-to-r from-[#fff3e0] to-[#ffd9b3]">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <input
@@ -280,10 +309,10 @@ export function AudienceSelector({
                         }
                       }}
                       placeholder={selectedAudienceType === 'groups' ? "Search groups..." : "Search contacts..."}
-                      className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-[#00a884]"
+                      className="w-full pl-10 pr-3 py-2 text-sm border-2 border-[#d97809] rounded-md focus:outline-none focus:ring-2 focus:ring-[#d97809] focus:border-[#d97809] bg-white"
                     />
                     <svg 
-                      className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
+                      className="absolute left-3 top-2.5 h-4 w-4 text-[#d97809]"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -294,7 +323,7 @@ export function AudienceSelector({
                   <button
                     onClick={handleSearch}
                     disabled={isLoading}
-                    className="px-4 py-2 bg-[#00a884] text-white rounded-md hover:bg-[#008f6c] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-4 py-2 bg-[#d97809] text-white rounded-md hover:bg-[#b85e07] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
                   >
                     {isLoading ? (
                       <>
@@ -313,20 +342,19 @@ export function AudienceSelector({
                         </svg>
                         <span>Search</span>
                       </>
-                    )}
-                  </button>
+                    )}                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div 
-                ref={listRef}
-                onScroll={handleScroll}
-                className="max-h-[300px] overflow-y-auto overscroll-contain scroll-smooth"
-              >
+                <div 
+                  ref={listRef}
+                  onScroll={handleScroll}
+                  className="max-h-[300px] overflow-y-auto overscroll-contain scroll-smooth"
+                >
                 {isLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="flex flex-col items-center space-y-2">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00a884]" />
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#d97809]" />
                       <span className="text-sm text-gray-500">
                         {selectedAudienceType === 'groups' ? 'Searching groups...' : 'Searching contacts...'}
                       </span>
@@ -361,12 +389,12 @@ export function AudienceSelector({
                           onClick={() => handleGroupSelect(group.groupId, group.groupName)}
                           className={`px-4 py-3 cursor-pointer flex items-center space-x-3 ${
                             selectedGroupsState.some(g => g.id === group.groupId)
-                              ? 'bg-[#e7f8f5] text-[#00a884]'
+                              ? 'bg-[#fff3e0] text-[#d97809]'
                               : 'hover:bg-gray-50 text-gray-900'
                           }`}
                         >
-                          <div className="flex-shrink-0 w-8 h-8 bg-[#25D366] bg-opacity-10 rounded-full flex items-center justify-center">
-                            <svg className="w-4 h-4 text-[#00a884]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="flex-shrink-0 w-8 h-8 bg-[#d97809] bg-opacity-10 rounded-full flex items-center justify-center">
+                            <svg className="w-4 h-4 text-[#d97809]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                             </svg>
                           </div>
@@ -374,7 +402,7 @@ export function AudienceSelector({
                             {group.groupName}
                           </span>
                           {selectedGroupsState.some(g => g.id === group.groupId) && (
-                            <svg className="w-5 h-5 text-[#00a884]" fill="currentColor" viewBox="0 0 20 20">
+                            <svg className="w-5 h-5 text-[#d97809]" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>
                           )}
@@ -383,7 +411,7 @@ export function AudienceSelector({
                       {isFetchingNextGroupsPage && (
                         <div className="flex items-center justify-center py-3">
                           <div className="flex items-center space-x-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#00a884]" />
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#d97809]" />
                             <span className="text-sm text-gray-500">Loading more groups...</span>
                           </div>
                         </div>
@@ -396,7 +424,7 @@ export function AudienceSelector({
                             </span>
                             <button
                               onClick={handleConfirmSelection}
-                              className="px-3 py-1 bg-[#00a884] text-white text-sm rounded-md hover:bg-[#008f6c] transition-colors"
+                              className="px-3 py-1 bg-[#d97809] text-white text-sm rounded-md hover:bg-[#b85e07] transition-colors"
                             >
                               Confirm Selection
                             </button>
@@ -434,12 +462,12 @@ export function AudienceSelector({
                           onClick={() => handleContactSelect(contact.groupId, contact.groupName)}
                           className={`px-4 py-3 cursor-pointer flex items-center space-x-3 ${
                             selectedContactsState.some(c => c.id === contact.groupId)
-                              ? 'bg-[#e7f8f5] text-[#00a884]'
+                              ? 'bg-[#fff3e0] text-[#d97809]'
                               : 'hover:bg-gray-50 text-gray-900'
                           }`}
                         >
-                          <div className="flex-shrink-0 w-8 h-8 bg-[#25D366] bg-opacity-10 rounded-full flex items-center justify-center">
-                            <svg className="w-4 h-4 text-[#00a884]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="flex-shrink-0 w-8 h-8 bg-[#d97809] bg-opacity-10 rounded-full flex items-center justify-center">
+                            <svg className="w-4 h-4 text-[#d97809]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
                           </div>
@@ -452,7 +480,7 @@ export function AudienceSelector({
                             )}
                           </span>
                           {selectedContactsState.some(c => c.id === contact.groupId) && (
-                            <svg className="w-5 h-5 text-[#00a884]" fill="currentColor" viewBox="0 0 20 20">
+                            <svg className="w-5 h-5 text-[#d97809]" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>
                           )}
@@ -461,7 +489,7 @@ export function AudienceSelector({
                       {isFetchingNextContactsPage && (
                         <div className="flex items-center justify-center py-3">
                           <div className="flex items-center space-x-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#00a884]" />
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#d97809]" />
                             <span className="text-sm text-gray-500">Loading more contacts...</span>
                           </div>
                         </div>
@@ -474,7 +502,7 @@ export function AudienceSelector({
                             </span>
                             <button
                               onClick={handleConfirmSelection}
-                              className="px-3 py-1 bg-[#00a884] text-white text-sm rounded-md hover:bg-[#008f6c] transition-colors"
+                              className="px-3 py-1 bg-[#d97809] text-white text-sm rounded-md hover:bg-[#b85e07] transition-colors"
                             >
                               Confirm Selection
                             </button>
@@ -489,7 +517,7 @@ export function AudienceSelector({
                     </>
                   )
                 )}
-              </div>
+                </div>
             </div>
           )}
         </div>
@@ -499,7 +527,7 @@ export function AudienceSelector({
       {selectedAudienceType === 'groups' && currentSelectedGroups.length > 0 && (
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-start space-x-4">
-            <div className="w-12 h-12 bg-[#00a884] rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 bg-[#d97809] rounded-lg flex items-center justify-center flex-shrink-0">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
@@ -520,7 +548,7 @@ export function AudienceSelector({
       {selectedAudienceType === 'individuals' && selectedContactsState.length > 0 && (
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-start space-x-4">
-            <div className="w-12 h-12 bg-[#00a884] rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 bg-[#d97809] rounded-lg flex items-center justify-center flex-shrink-0">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
               </svg>
