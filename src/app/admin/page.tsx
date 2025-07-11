@@ -47,12 +47,31 @@ export default function AdminDashboard() {
   });
 
   const [approvingUsers, setApprovingUsers] = useState<Set<string>>(new Set());
+  const [rejectingUsers, setRejectingUsers] = useState<Set<string>>(new Set());
   
   const { mutate: approveUser } = api.admin.approveUser.useMutation({
     onSuccess: (_, variables) => {
       void refetchPendingUsers();
       void refetchApprovedUsers();
       setApprovingUsers(prev => {
+        const next = new Set(prev);
+        next.delete(variables.userId);
+        return next;
+      });
+    },
+  });
+
+  const { mutate: rejectUser } = api.admin.deleteUser.useMutation({
+    onSuccess: (_, variables) => {
+      void refetchPendingUsers();
+      setRejectingUsers(prev => {
+        const next = new Set(prev);
+        next.delete(variables.userId);
+        return next;
+      });
+    },
+    onError: (_, variables) => {
+      setRejectingUsers(prev => {
         const next = new Set(prev);
         next.delete(variables.userId);
         return next;
@@ -343,16 +362,28 @@ export default function AdminDashboard() {
                         <p className="font-medium">{user.name}</p>
                         <p className="text-sm text-gray-500">{user.email}</p>
                       </div>
-                      <button
-                        onClick={() => {
-                          setApprovingUsers(prev => new Set(prev).add(user.id));
-                          approveUser({ userId: user.id });
-                        }}
-                        disabled={approvingUsers.has(user.id)}
-                        className="text-sm bg-[#d97809] text-white px-3 py-1.5 rounded-md hover:bg-[#b85e07] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {approvingUsers.has(user.id) ? 'Approving...' : 'Approve'}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setApprovingUsers(prev => new Set(prev).add(user.id));
+                            approveUser({ userId: user.id });
+                          }}
+                          disabled={approvingUsers.has(user.id) || rejectingUsers.has(user.id)}
+                          className="text-sm bg-[#d97809] text-white px-3 py-1.5 rounded-md hover:bg-[#b85e07] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {approvingUsers.has(user.id) ? 'Approving...' : 'Approve'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setRejectingUsers(prev => new Set(prev).add(user.id));
+                            rejectUser({ userId: user.id });
+                          }}
+                          disabled={rejectingUsers.has(user.id) || approvingUsers.has(user.id)}
+                          className="text-sm bg-[#dc3545] text-white px-3 py-1.5 rounded-md hover:bg-[#c82333] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {rejectingUsers.has(user.id) ? 'Rejecting...' : 'Reject'}
+                        </button>
+                      </div>
                     </div>
                   ))
                 ) : (

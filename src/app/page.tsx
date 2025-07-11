@@ -15,6 +15,7 @@ export default function Home() {
   const router = useRouter();
 
   const [isCompletedCampaignsOpen, setIsCompletedCampaignsOpen] = useState(false);
+  const [isActiveCampaignsCollapsed, setIsActiveCampaignsCollapsed] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [sessionStatus, setSessionStatus] = useState<WhatsAppSessionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -867,17 +868,40 @@ export default function Home() {
                           <span className="mr-2">📊</span>
                           Active Campaigns
                         </h4>
-                        <button
-                          onClick={() => setIsCompletedCampaignsOpen(true)}
-                          className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 font-medium"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                          View Completed
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setIsActiveCampaignsCollapsed(!isActiveCampaignsCollapsed)}
+                            className="bg-blue-100 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2 font-medium"
+                          >
+                            <svg 
+                              className={`w-4 h-4 transition-transform ${isActiveCampaignsCollapsed ? 'rotate-180' : ''}`} 
+                              fill="none" 
+                              stroke="currentColor" 
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                            {isActiveCampaignsCollapsed ? 'Expand' : 'Collapse'}
+                          </button>
+                          <button
+                            onClick={() => setIsCompletedCampaignsOpen(true)}
+                            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 font-medium"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                            View Completed
+                          </button>
+                        </div>
                       </div>
-                      <CampaignList onEditCampaign={handleEditCampaign} />
+                      {!isActiveCampaignsCollapsed && (
+                        <CampaignList onEditCampaign={handleEditCampaign} />
+                      )}
+                      {isActiveCampaignsCollapsed && (
+                        <div className="text-center py-4 text-gray-500">
+                          <p className="text-sm">Active campaigns list is collapsed. Click &quot;Expand&quot; to view.</p>
+                        </div>
+                      )}
                     </div>
 
                     {/* TrueSenger Message Scheduler */}
@@ -888,7 +912,7 @@ export default function Home() {
                             <span className="text-2xl">🌟</span>
                           </div>
                           <div>
-                            <h3 className="text-2xl font-bold">TrueSenger WhatsApp Message Scheduler</h3>
+                            <h3 className="text-2xl font-bold">TrueSenger</h3>
                             <p className="text-blue-100 mt-1">Create and schedule your WhatsApp campaigns</p>
                           </div>
                         </div>
