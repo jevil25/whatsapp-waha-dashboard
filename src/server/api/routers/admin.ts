@@ -235,4 +235,46 @@ export const adminRouter = createTRPCRouter({
         },
       });
     }),
+
+  getCompletedCampaigns: adminProcedure
+    .query(async () => {
+      return await db.messageCampaign.findMany({
+        where: {
+          isDeleted: false,
+          status: 'COMPLETED',
+        },
+        include: {
+          group: true,
+        },
+        orderBy: {
+          endDate: 'desc',
+        },
+      });
+    }),
+
+  getCampaignStats: adminProcedure
+    .query(async () => {
+      const [activeCampaigns, completedCampaigns] = await Promise.all([
+        db.messageCampaign.count({
+          where: {
+            isDeleted: false,
+            status: {
+              in: ['SCHEDULED', 'IN_PROGRESS'],
+            },
+          },
+        }),
+        db.messageCampaign.count({
+          where: {
+            isDeleted: false,
+            status: 'COMPLETED',
+          },
+        }),
+      ]);
+
+      return {
+        active: activeCampaigns,
+        completed: completedCampaigns,
+        total: activeCampaigns + completedCampaigns,
+      };
+    }),
 });
