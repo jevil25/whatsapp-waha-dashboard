@@ -22,9 +22,9 @@ export default function AdminDashboard() {
     groups: boolean;
     campaigns: boolean;
   }>({
-    sessions: true,
-    groups: true,
-    campaigns: true,
+    sessions: false,
+    groups: false,
+    campaigns: false,
   });
 
   const toggleSection = (section: 'sessions' | 'groups' | 'campaigns') => {
