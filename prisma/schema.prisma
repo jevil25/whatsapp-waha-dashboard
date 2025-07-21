@@ -91,6 +91,7 @@ model MessageCampaign {
   isDeleted    Boolean        @default(false)
   isEdited     Boolean        @default(false)
   isCompleted  Boolean        @default(false)
+  isFreeForm   Boolean        @default(false) // Whether the message is free form or structured
   status       CampaignStatus @default(SCHEDULED)
   recurrence   Recurrence?
   isRecurring  Boolean        @default(false)

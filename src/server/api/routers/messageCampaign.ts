@@ -196,6 +196,7 @@ export const messageCampaignRouter = createTRPCRouter({
           status: "SCHEDULED",
           isRecurring,
           recurrence,
+          isFreeForm: input.isFreeForm,
           messages: {
             create: messages,
           },
@@ -238,6 +239,7 @@ export const messageCampaignRouter = createTRPCRouter({
             createdAt: true,
             isRecurring: true,
             recurrence: true,
+            isFreeForm: true,
             group: {
               select: {
                 id: true,
@@ -256,6 +258,9 @@ export const messageCampaignRouter = createTRPCRouter({
                 sentAt: true,
                 isSent: true,
                 isFailed: true,
+                hasImage: true,
+                imageUrl: true,
+                imagePublicId: true,
               },
               orderBy: {
                 scheduledAt: 'asc'
@@ -302,6 +307,7 @@ export const messageCampaignRouter = createTRPCRouter({
             createdAt: true,
             isRecurring: true,
             recurrence: true,
+            isFreeForm: true,
             group: {
               select: {
                 id: true,
@@ -320,6 +326,9 @@ export const messageCampaignRouter = createTRPCRouter({
                 sentAt: true,
                 isSent: true,
                 isFailed: true,
+                hasImage: true,
+                imageUrl: true,
+                imagePublicId: true,
               },
               orderBy: {
                 scheduledAt: 'asc'
@@ -587,6 +596,7 @@ export const messageCampaignRouter = createTRPCRouter({
           template: messageTemplate,
           recurrence,
           isRecurring,
+          isFreeForm: input.isFreeForm,
           messages: {
             create: messages,
           },

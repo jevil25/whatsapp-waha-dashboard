@@ -365,22 +365,39 @@ export default function Home() {
     setCampaignTitle(campaign.title ?? '');
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
     setTargetAmount(campaign.targetAmount ?? '');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    setStartDate(campaign.startDate ?? '');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    setEndDate(campaign.endDate ?? '');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    setMessageTime(campaign.messageTime ?? '12:00');
+    
+    // Format dates properly for HTML date inputs (YYYY-MM-DD)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const startDateFormatted = campaign.startDate ? new Date(campaign.startDate as string | Date).toISOString().split('T')[0] : '';
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const endDateFormatted = campaign.endDate ? new Date(campaign.endDate as string | Date).toISOString().split('T')[0] : '';
+    
+    setStartDate(startDateFormatted ?? '');
+    setEndDate(endDateFormatted ?? '');
+    
+    // Format time from sendTimeUtc
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (campaign.sendTimeUtc) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const timeFromUtc = new Date(campaign.sendTimeUtc as string | Date);
+      const hours = timeFromUtc.getUTCHours().toString().padStart(2, '0');
+      const minutes = timeFromUtc.getUTCMinutes().toString().padStart(2, '0');
+      setMessageTime(`${hours}:${minutes}`);
+    } else {
+      setMessageTime('12:00');
+    }
+    
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
     setTimeZone(campaign.timeZone ?? 'America/Chicago');
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    setMessageTemplate(campaign.messageTemplate ?? '');
+    setMessageTemplate(campaign.template ?? '');
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
     setIsRecurring(campaign.isRecurring ?? false);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
     setIsFreeForm(campaign.isFreeForm ?? false);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
     setRecurrence(campaign.recurrence ?? undefined);
+    
     // Load existing images if any
     /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
     const existingImages = campaign.messages?.flatMap((msg: any) => 

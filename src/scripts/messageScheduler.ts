@@ -55,21 +55,51 @@ async function checkAndSendScheduledMessages() {
                 // Send message using WhatsApp API
                 console.log(`Sending message to group ${message.MessageCampaign?.group.groupName}: ${message.content}`);
                 console.log(`Message ID: ${message.id}, Scheduled At: ${message.scheduledAt.toISOString()}`);
-                const response = await fetch(`${process.env.WAHA_API_URL}/api/sendText`, {
-                    method: 'POST',
-                    headers: {
-                        'accept': 'application/json',
-                        'X-Api-Key': process.env.WAHA_API_KEY ?? '',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        chatId: message.MessageCampaign?.group.groupId,
-                        text: message.content,
-                        linkPreview: true,
-                        linkPreviewHighQuality: false,
-                        session: session?.sessionName,
-                    })
-                });
+                
+                let response: Response;
+                
+                // Type assertion to access the new fields until TypeScript types are updated
+                const messageWithImage = message as typeof message & { hasImage: boolean; imageUrl: string | null };
+                
+                if (messageWithImage.hasImage && messageWithImage.imageUrl) {
+                    // Send image message
+                    console.log(`Sending image message with URL: ${messageWithImage.imageUrl}`);
+                    response = await fetch(`${process.env.WAHA_API_URL}/api/sendImage`, {
+                        method: 'POST',
+                        headers: {
+                            'accept': 'application/json',
+                            'X-Api-Key': process.env.WAHA_API_KEY ?? '',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            chatId: message.MessageCampaign?.group.groupId,
+                            file: {
+                                url: messageWithImage.imageUrl,
+                                mimetype: "image/jpeg",
+                                filename: "image.jpg"
+                            },
+                            caption: message.content,
+                            session: session?.sessionName,
+                        })
+                    });
+                } else {
+                    // Send text message
+                    response = await fetch(`${process.env.WAHA_API_URL}/api/sendText`, {
+                        method: 'POST',
+                        headers: {
+                            'accept': 'application/json',
+                            'X-Api-Key': process.env.WAHA_API_KEY ?? '',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            chatId: message.MessageCampaign?.group.groupId,
+                            text: message.content,
+                            linkPreview: true,
+                            linkPreviewHighQuality: false,
+                            session: session?.sessionName,
+                        })
+                    });
+                }
 
                 if (response.status !== 201) {
                     throw new Error(`Failed to send WhatsApp message: ${response.statusText}`);
