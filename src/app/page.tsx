@@ -375,13 +375,18 @@ export default function Home() {
     setStartDate(startDateFormatted ?? '');
     setEndDate(endDateFormatted ?? '');
     
-    // Format time from sendTimeUtc
+    // Format time from sendTimeUtc - convert from UTC to campaign's timezone
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (campaign.sendTimeUtc) {
+    if (campaign.sendTimeUtc && campaign.timeZone) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const timeFromUtc = new Date(campaign.sendTimeUtc as string | Date);
-      const hours = timeFromUtc.getUTCHours().toString().padStart(2, '0');
-      const minutes = timeFromUtc.getUTCMinutes().toString().padStart(2, '0');
+      const utcTime = new Date(campaign.sendTimeUtc as string | Date);
+      
+      // Convert UTC time to the campaign's timezone
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const localTime = new Date(utcTime.toLocaleString("en-US", { timeZone: campaign.timeZone as string }));
+      
+      const hours = localTime.getHours().toString().padStart(2, '0');
+      const minutes = localTime.getMinutes().toString().padStart(2, '0');
       setMessageTime(`${hours}:${minutes}`);
     } else {
       setMessageTime('12:00');
