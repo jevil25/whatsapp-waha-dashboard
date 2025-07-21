@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -355,7 +357,7 @@ export const messageCampaignRouter = createTRPCRouter({
       campaignId: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.messageCampaign.update({
+      const res = await ctx.db.messageCampaign.update({
         where: { id: input.campaignId, session: { userId: ctx.session.user.id } },
         data: { 
             isDeleted: true,
@@ -370,8 +372,16 @@ export const messageCampaignRouter = createTRPCRouter({
               }
             },
         },
+        select: {
+          messages: {
+            select: {
+              imagePublicId: true,
+            },
+          },
+        },
       });
-
+      const imagePublicId = res.messages.map(msg => msg.imagePublicId).filter(id => id);
+      await Promise.all(imagePublicId.map(id => deleteFromCloudinary(id ?? "")));
       return { success: true };
     }),
 
