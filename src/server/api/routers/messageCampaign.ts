@@ -23,6 +23,10 @@ export const messageCampaignRouter = createTRPCRouter({
         isRecurring: z.boolean(),
         recurrence: z.enum(['DAILY', 'WEEKLY', 'SEMI_MONTHLY', 'MONTHLY', 'SEMI_ANNUALLY', 'ANNUALLY']).default('DAILY'),
         audienceType: z.enum(['groups', 'individuals']).default('groups'), // New field to distinguish between groups and individuals
+        images: z.array(z.object({
+          url: z.string(),
+          publicId: z.string(),
+        })).optional(), // Array of uploaded images
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -127,10 +131,32 @@ export const messageCampaignRouter = createTRPCRouter({
           : messageTemplate;
         messageContent += messageText?.replace(/{days_left}/g, daysLeft.toString());
 
+        // Handle image assignment based on frequency
+        let imageUrl: string | undefined;
+        let imagePublicId: string | undefined;
+        let hasImage = false;
+
+        if (input.images && input.images.length > 0) {
+          hasImage = true;
+          if (isRecurring && input.images.length > 1) {
+            // For recurring campaigns with multiple images, cycle through them
+            const imageIndex = sequenceIndex % input.images.length;
+            imageUrl = input.images[imageIndex]?.url;
+            imagePublicId = input.images[imageIndex]?.publicId;
+          } else {
+            // For one-time campaigns or single image, use the first image for all messages
+            imageUrl = input.images[0]?.url;
+            imagePublicId = input.images[0]?.publicId;
+          }
+        }
+
         messages.push({
           sessionId,
           content: messageContent,
           scheduledAt: scheduledDateUtc,
+          hasImage,
+          imageUrl,
+          imagePublicId,
         });
 
         i = i + days_width;
@@ -352,6 +378,10 @@ export const messageCampaignRouter = createTRPCRouter({
         isFreeForm: z.boolean().default(false),
         recurrence: z.enum(['DAILY', 'WEEKLY', 'SEMI_MONTHLY', 'MONTHLY', 'SEMI_ANNUALLY', 'ANNUALLY']).default('DAILY'),
         audienceType: z.enum(['groups', 'individuals']).default('groups').optional(), // New field to distinguish between groups and individuals
+        images: z.array(z.object({
+          url: z.string(),
+          publicId: z.string(),
+        })).optional(), // Array of uploaded images
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -399,11 +429,14 @@ export const messageCampaignRouter = createTRPCRouter({
         throw new Error("Campaign not found or access denied");
       }
 
-      // Check if any messages have already been sent - use optional chaining for safety
-      const hasSentMessages = existingCampaign.messages?.some((m: any) => m.isSent) ?? false;
-      if (hasSentMessages) {
-        throw new Error("Cannot edit campaign with messages that have already been sent");
-      }
+      // Allow editing campaigns even after some messages have been sent
+      // We'll only update future unsent messages and preserve already sent ones
+      const now = new Date();
+      const hasFutureMessages = existingCampaign.messages?.some((m: any) => !m.isSent && new Date(m.scheduledAt as Date) > now) ?? false;
+      
+      // If there are no future messages and the campaign has already started, 
+      // we still allow editing to extend the campaign or modify the template for new messages
+      console.log(`Campaign ${campaignId} has future messages: ${hasFutureMessages}`);
 
       const startDt = DateTime.fromISO(startDate, { zone: timeZone })
         .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
@@ -449,49 +482,80 @@ export const messageCampaignRouter = createTRPCRouter({
         days_width = recurrenceDaysMap[recurrence];
       }
 
-      // For non-recurring campaigns, generate messages for each day
+      // Generate messages for future dates only
+      // This prevents recreating messages for dates that have already passed or have been sent
       let currentDate = startDt;
       let sequenceIndex = 0;
+      const futureTime = new Date();
+      
       while (currentDate <= endDt) {
         const scheduledDateUtc = currentDate.setZone("UTC").toJSDate();
-        const endDateObj = endDt.toJSDate();
-        const daysLeft = Math.ceil((endDateObj.getTime() - currentDate.toJSDate().getTime()) / (1000 * 60 * 60 * 24));
-
-        // Build message content with optional fields
-        let messageContent = '';
         
-        if (!input.isFreeForm) {
-          if (title?.trim()) {
-            messageContent += `Campaign Title: ${title}\n`;
+        // Only create messages for future dates
+        if (scheduledDateUtc > futureTime) {
+          const endDateObj = endDt.toJSDate();
+          const daysLeft = Math.ceil((endDateObj.getTime() - currentDate.toJSDate().getTime()) / (1000 * 60 * 60 * 24));
+
+          // Build message content with optional fields
+          let messageContent = '';
+          
+          if (!input.isFreeForm) {
+            if (title?.trim()) {
+              messageContent += `Campaign Title: ${title}\n`;
+            }
+            
+            messageContent += `Campaign Start Date: ${startDate}\n`;
+            messageContent += `Campaign End Date: ${endDate}\n`;
+            
+            if (targetAmount?.trim()) {
+              messageContent += `Contribution Target Amount: ${targetAmount}\n`;
+            }
+            
+            messageContent += `Days Remaining: ${daysLeft}\n\n`;
           }
-          
-          messageContent += `Campaign Start Date: ${startDate}\n`;
-          messageContent += `Campaign End Date: ${endDate}\n`;
-          
-          if (targetAmount?.trim()) {
-            messageContent += `Contribution Target Amount: ${targetAmount}\n`;
+
+          // Select and add appropriate message from sequence
+          const messageText = isRecurring && messageSequence.length > 0
+            ? messageSequence[sequenceIndex % messageSequence.length]
+            : messageTemplate;
+          messageContent += messageText?.replace(/{days_left}/g, daysLeft.toString());
+
+          // Handle image assignment based on frequency for update
+          let imageUrl: string | undefined;
+          let imagePublicId: string | undefined;
+          let hasImage = false;
+
+          if (input.images && input.images.length > 0) {
+            hasImage = true;
+            if (isRecurring && input.images.length > 1) {
+              // For recurring campaigns with multiple images, cycle through them
+              const imageIndex = sequenceIndex % input.images.length;
+              imageUrl = input.images[imageIndex]?.url;
+              imagePublicId = input.images[imageIndex]?.publicId;
+            } else {
+              // For one-time campaigns or single image, use the first image for all messages
+              imageUrl = input.images[0]?.url;
+              imagePublicId = input.images[0]?.publicId;
+            }
           }
-          
-          messageContent += `Days Remaining: ${daysLeft}\n\n`;
+
+          messages.push({
+            sessionId: existingCampaign.sessionId,
+            content: messageContent,
+            scheduledAt: scheduledDateUtc,
+            hasImage,
+            imageUrl,
+            imagePublicId,
+          });
         }
-
-        // Select and add appropriate message from sequence
-        const messageText = isRecurring && messageSequence.length > 0
-          ? messageSequence[sequenceIndex % messageSequence.length]
-          : messageTemplate;
-        messageContent += messageText?.replace(/{days_left}/g, daysLeft.toString());
-
-        messages.push({
-          sessionId: existingCampaign.sessionId,
-          content: messageContent,
-          scheduledAt: scheduledDateUtc,
-        });
 
         currentDate = currentDate.plus({ days: days_width });
         sequenceIndex++;
       }
 
-      // Mark existing unsent messages as deleted and create new ones
+      // Mark existing unsent messages that are scheduled for the future as deleted and create new ones
+      // This preserves already sent messages and any messages that are about to be sent
+      const currentTime = new Date();
       await ctx.db.messageCampaign.update({
         where: { id: campaignId },
         data: {
@@ -500,6 +564,7 @@ export const messageCampaignRouter = createTRPCRouter({
               where: {
                 MessageCampaignId: campaignId,
                 isSent: false,
+                scheduledAt: { gt: currentTime }, // Only delete future unsent messages
               },
               data: {
                 isDeleted: true,

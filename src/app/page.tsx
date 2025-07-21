@@ -9,6 +9,7 @@ import { type WhatsAppSessionStatus } from "~/types/session";
 import { AudienceSelector } from './_components/whatsapp/AudienceSelector';
 import { CampaignList } from './_components/whatsapp/CampaignList';
 import { CompletedCampaignsModal } from './_components/whatsapp/CompletedCampaignsModal';
+import { ImageUpload } from './_components/whatsapp/ImageUpload';
 
 export default function Home() {
   const { data: session, isPending } = authClient.useSession();
@@ -107,6 +108,9 @@ export default function Home() {
   /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any */
   const [editingCampaign, setEditingCampaign] = useState<any>(null);
   /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any */
+  
+  // State for image uploads
+  const [images, setImages] = useState<Array<{ url: string; publicId: string; file?: File }>>([]);
 
   const { data: whatsAppSession, isLoading: isWhatsAppLoading } = api.user.getWhatsAppSession.useQuery(undefined, {
     enabled: !!session?.user && session.user.role !== 'GUEST',
@@ -377,6 +381,13 @@ export default function Home() {
     setIsFreeForm(campaign.isFreeForm ?? false);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
     setRecurrence(campaign.recurrence ?? undefined);
+    // Load existing images if any
+    /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
+    const existingImages = campaign.messages?.flatMap((msg: any) => 
+      msg.imageUrl && msg.imagePublicId ? [{ url: msg.imageUrl, publicId: msg.imagePublicId }] : []
+    ) ?? [];
+    setImages(existingImages);
+    /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
   };
 
   const clearEditMode = () => {
@@ -389,6 +400,7 @@ export default function Home() {
     setTimeZone('America/Chicago');
     setMessageTemplate('');
     setIsRecurring(false);
+    setImages([]);
     setIsFreeForm(false);
     setRecurrence(undefined);
     setSubmitStatus(null);
@@ -469,6 +481,7 @@ export default function Home() {
         isFreeForm,
         recurrence: isRecurring ? recurrence : undefined,
         audienceType: selectedAudienceType,
+        images: images.length > 0 ? images : undefined,
       });
     } else {
       // Create new campaigns - potentially multiple if individuals selected
@@ -500,6 +513,7 @@ export default function Home() {
             isFreeForm,
             recurrence: isRecurring ? recurrence : undefined,
             audienceType: selectedAudienceType,
+            images: images.length > 0 ? images : undefined,
           });
         });
 
@@ -522,6 +536,7 @@ export default function Home() {
         setSelectedAudienceIds([]);
         setSelectedAudienceNames([]);
         setSelectedAudienceType('groups');
+        setImages([]);
         
         // Refetch campaigns
         void trpcUtils.messageCampaign.getCampaigns.invalidate();
@@ -985,7 +1000,10 @@ export default function Home() {
                                   <strong>Editing campaign for group:</strong> {editingCampaign.group?.groupName}
                                 </p>
                                 <p className="text-xs text-blue-600 mt-1">
-                                  Note: The group cannot be changed when editing a campaign
+                                  Note: You can edit campaigns even after they&apos;ve started sending. Only future unsent messages will be updated.
+                                </p>
+                                <p className="text-xs text-blue-600">
+                                  The group cannot be changed when editing a campaign.
                                 </p>
                               </div>
                             )}
@@ -1287,6 +1305,21 @@ export default function Home() {
                                     </div>
                                   )}
                                 </div>
+                              </div>
+
+                              {/* Image Upload */}
+                              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-200">
+                                <h5 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+                                  <span className="mr-2">🖼️</span>
+                                  Images
+                                </h5>
+                                <ImageUpload
+                                  images={images}
+                                  onImagesChange={setImages}
+                                  maxImages={isRecurring && messageSequence.length > 1 ? messageSequence.length : 1}
+                                  isRecurring={isRecurring}
+                                  recurrence={recurrence}
+                                />
                               </div>
 
                               {/* Message Preview */}

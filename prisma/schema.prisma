@@ -126,6 +126,9 @@ model Message {
   isSent            Boolean   @default(false)
   isFailed          Boolean   @default(false)
   failedReason      String?
+  hasImage          Boolean   @default(false)
+  imageUrl          String?   // Cloudinary URL for the image
+  imagePublicId     String?   // Cloudinary public ID for deletion
 
   MessageCampaign MessageCampaign @relation(fields: [MessageCampaignId], references: [id], onDelete: Cascade)
 }

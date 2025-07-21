@@ -20,6 +20,9 @@ export const env = createEnv({
     FROM_EMAIL: z.string().email(),
     ADMIN_EMAIL: z.string().email(),
     ADMIN_PHONE_NUMBER: z.string().optional(),
+    CLOUDINARY_CLOUD_NAME: z.string(),
+    CLOUDINARY_API_KEY: z.string(),
+    CLOUDINARY_API_SECRET: z.string(),
   },
 
   /**
@@ -47,6 +50,9 @@ export const env = createEnv({
     FROM_EMAIL: process.env.FROM_EMAIL,
     ADMIN_EMAIL: process.env.ADMIN_EMAIL,
     ADMIN_PHONE_NUMBER: process.env.ADMIN_PHONE_NUMBER,
+    CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+    CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+    CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
     NEXT_PUBLIC_SHOW_FOOTER: process.env.NEXT_PUBLIC_SHOW_FOOTER,
   },
   /**
