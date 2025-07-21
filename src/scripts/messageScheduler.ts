@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { PrismaClient, CampaignStatus } from '@prisma/client';
+import { deleteFromCloudinary } from '~/lib/cloudinary';
 
 const prisma = new PrismaClient();
 
@@ -82,6 +84,7 @@ async function checkAndSendScheduledMessages() {
                             session: session?.sessionName,
                         })
                     });
+                    await deleteFromCloudinary(messageWithImage.imagePublicId ?? "");
                 } else {
                     // Send text message
                     response = await fetch(`${process.env.WAHA_API_URL}/api/sendText`, {

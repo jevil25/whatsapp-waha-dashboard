@@ -1,9 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { DateTime } from "luxon";
+import { deleteFromCloudinary } from "~/lib/cloudinary";
 
 export const messageCampaignRouter = createTRPCRouter({
   createCampaign: protectedProcedure
@@ -582,6 +585,20 @@ export const messageCampaignRouter = createTRPCRouter({
           },
         },
       });
+
+      // delete the images from cloud storage if not using them anymore
+      if (existingCampaign.messages) {
+        const existingImagePublicIds = existingCampaign.messages
+          .filter((m) => m.hasImage && m.imagePublicId)
+          .map((m) => m.imagePublicId)
+        const newImagePublicIds = input.images?.map(img => img.publicId) || [];
+        const imagesToDelete = existingImagePublicIds.filter(id => !newImagePublicIds.includes(id || ""));
+        if (imagesToDelete.length > 0) {
+          await Promise.all(imagesToDelete.map(async (publicId) => {
+            await deleteFromCloudinary(publicId || "");
+          }));
+        }
+      }
 
       // Update campaign and create new messages
       const updatedCampaign = await ctx.db.messageCampaign.update({
