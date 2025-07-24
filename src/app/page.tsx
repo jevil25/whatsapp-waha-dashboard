@@ -1566,14 +1566,14 @@ export default function Home() {
                                           <Image src={images[0].url} alt="Status Image" width={320} height={320} className="object-cover w-full h-full" style={{maxHeight:320}} />
                                         </div>
                                         <div className="w-full px-4 py-4 flex items-center justify-center">
-                                          <span className="text-lg font-semibold text-center" style={{color:'white'}}>
+                                          <span className="text-lg font-semibold text-center text-white">
                                             {messagePreview}
                                           </span>
                                         </div>
                                       </>
                                     ) : (
                                       <div className="flex flex-col items-center justify-center w-full h-full min-h-[480px]">
-                                        <span className="text-2xl font-semibold text-center px-6 py-12" style={{color:'#white'}}>
+                                        <span className="text-2xl font-semibold text-center px-6 py-12 text-white">
                                           {messagePreview}
                                         </span>
                                       </div>
