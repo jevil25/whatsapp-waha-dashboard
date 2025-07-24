@@ -650,6 +650,7 @@ export default function Home() {
             timeZone,
             statusText: messageTemplate,
             isRecurring,
+            isFreeForm,
             recurrence: isRecurring ? recurrence : undefined,
             images: images.length > 0 ? images : undefined,
             startDate: startDate,
