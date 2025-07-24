@@ -69,7 +69,6 @@ async function checkAndSendScheduledMessages() {
 
         if (messagesToSend.length === 0) {
             console.log(`[${now.toISOString()}] No pending messages to send`);
-            return;
         }
 
         console.log(`[${now.toISOString()}] Found ${messagesToSend.length} messages to send`);
@@ -212,7 +211,7 @@ async function checkAndSendScheduledMessages() {
                 if (statusWithImage.hasImage && statusWithImage.imageUrl) {
                     // Send image status (story)
                     console.log(`Sending image status with URL: ${statusWithImage.imageUrl}`);
-                    response = await fetch(`${process.env.WAHA_API_URL}/api/sendStatus`, {
+                    response = await fetch(`${process.env.WAHA_API_URL}/api/${session?.sessionName}/status/image`, {
                         method: 'POST',
                         headers: {
                             'accept': 'application/json',
@@ -223,16 +222,14 @@ async function checkAndSendScheduledMessages() {
                             file: {
                                 url: statusWithImage.imageUrl,
                                 mimetype: "image/jpeg",
-                                filename: "image.jpg"
                             },
                             caption: status.content,
-                            session: session?.sessionName,
                         })
                     });
                     await deleteFromCloudinary(statusWithImage.imagePublicId ?? "");
                 } else {
                     // Send text status (story)
-                    response = await fetch(`${process.env.WAHA_API_URL}/api/sendStatus`, {
+                    response = await fetch(`${process.env.WAHA_API_URL}/api/${session?.sessionName}/status/text`, {
                         method: 'POST',
                         headers: {
                             'accept': 'application/json',
@@ -241,7 +238,8 @@ async function checkAndSendScheduledMessages() {
                         },
                         body: JSON.stringify({
                             text: status.content,
-                            session: session?.sessionName,
+                            backgroundColor: "#FFFBEA",
+                            font: 1
                         })
                     });
                 }
