@@ -1559,7 +1559,7 @@ export default function Home() {
                               {/* Message Preview */}
                               {messageTemplate && messagePreview && (
                                 scheduleType === "status" ? (
-                                  <div className="flex flex-col items-center justify-center rounded-xl p-0 border border-blue-400 shadow-lg min-h-[480px] w-[320px] mx-auto relative" style={{background:'#FFFBEA'}}>
+                                  <div className="flex flex-col items-center justify-center rounded-xl p-0 border border-blue-400 shadow-lg min-h-[480px] w-[320px] mx-auto relative" style={{background:'#C2A240'}}>
                                     {images && images.length > 0 && images[0]?.url ? (
                                       <>
                                         <div className="w-full h-[320px] flex items-center justify-center overflow-hidden rounded-t-xl">
