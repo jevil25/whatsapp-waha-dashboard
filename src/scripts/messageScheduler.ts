@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { PrismaClient, CampaignStatus } from '@prisma/client';
 import { deleteFromCloudinary } from '~/lib/cloudinary';
 

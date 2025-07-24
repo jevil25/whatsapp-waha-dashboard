@@ -1,7 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/prefer-optional-chain */
 import { useState } from 'react';
 import { api } from "~/trpc/react";
@@ -16,10 +12,16 @@ export function CompletedCampaignsModal({ isOpen, onClose }: {
 
   if (!isOpen) return null;
 
-  const filteredCampaigns = campaigns?.filter(campaign => 
+  const filteredCampaigns = campaigns?.campaigns?.filter(campaign => 
     campaign.group.groupName.toLowerCase().includes(searchTerm.toLowerCase()) ??
     campaign.template.toLowerCase().includes(searchTerm.toLowerCase()) ??
     (campaign.title && campaign.title.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const filteredStatuses = campaigns?.statuses.filter(status => 
+    status.status.toLowerCase().includes(searchTerm.toLowerCase()) ??
+    status.template.toLowerCase().includes(searchTerm.toLowerCase()) ??
+    (status.title && status.title.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -28,7 +30,7 @@ export function CompletedCampaignsModal({ isOpen, onClose }: {
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col pointer-events-auto">
           <div className="p-4 border-b flex items-center justify-between">
-            <h2 className="text-lg font-medium">Completed Campaigns</h2>
+            <h2 className="text-lg font-medium">Completed</h2>
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700"
@@ -50,6 +52,8 @@ export function CompletedCampaignsModal({ isOpen, onClose }: {
           </div>
 
           <div className="flex-1 overflow-auto p-4">
+            {/* Campaigns Section */}
+            <h3 className="text-md font-semibold mb-2">Completed Campaigns</h3>
             {isLoading ? (
               <div className="animate-pulse space-y-4">
                 <div className="h-20 bg-gray-100 rounded"></div>
@@ -60,7 +64,7 @@ export function CompletedCampaignsModal({ isOpen, onClose }: {
                 No completed campaigns found
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4 mb-8">
                 {filteredCampaigns.map((campaign) => {
                   const startDate = DateTime.fromJSDate(new Date(campaign.startDate));
                   const endDate = DateTime.fromJSDate(new Date(campaign.endDate));
@@ -99,6 +103,59 @@ export function CompletedCampaignsModal({ isOpen, onClose }: {
 
                       <div className="text-sm text-gray-600 whitespace-pre-wrap border-t pt-2 mt-2">
                         <strong>Template:</strong> {campaign.template}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Statuses Section */}
+            <h3 className="text-md font-semibold mb-2 mt-6">Completed Statuses</h3>
+            {isLoading ? (
+              <div className="animate-pulse space-y-4">
+                <div className="h-20 bg-gray-100 rounded"></div>
+                <div className="h-20 bg-gray-100 rounded"></div>
+              </div>
+            ) : !filteredStatuses?.length ? (
+              <div className="text-center py-8 text-gray-500">
+                No completed statuses found
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredStatuses.map((status) => {
+                  const startDate = DateTime.fromJSDate(new Date(status.startDate));
+                  const endDate = DateTime.fromJSDate(new Date(status.endDate));
+                  const sentCount = status.statuses?.filter(s => s.isSent).length ?? 0;
+                  const totalStatuses = status.statuses?.length ?? 0;
+
+                  return (
+                    <div key={status.id} className="bg-gray-50 rounded-lg p-4 space-y-3">
+                      <div>
+                        {status.title && (
+                          <h4 className="font-medium text-gray-900 mb-1">
+                            {status.title}
+                          </h4>
+                        )}
+                        <h5 className={`${status.title ? 'text-sm text-gray-600' : 'font-medium text-gray-900'}`}>
+                          {status.status}
+                        </h5>
+                        <p className="text-sm text-gray-500">
+                          {startDate.toFormat('LLL dd')} - {endDate.toFormat('LLL dd, yyyy')}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Final Status: {sentCount} of {totalStatuses} statuses sent</span>
+                          <span className="text-gray-500">
+                            {totalStatuses ? Math.round((sentCount / totalStatuses) * 100) : 0}% Complete
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="text-sm text-gray-600 whitespace-pre-wrap border-t pt-2 mt-2">
+                        <strong>Template:</strong> {status.template}
                       </div>
                     </div>
                   );

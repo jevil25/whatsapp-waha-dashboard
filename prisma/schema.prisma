@@ -59,6 +59,8 @@ model WhatsAppSession {
   WhatsAppGroups WhatsAppGroup[]
   @@unique([userId, status])
   MessageCampaign MessageCampaign[]
+  Status Status[]
+  statusCampaigns StatusCampaign[]
 }
 
 model WhatsAppGroup {
@@ -132,6 +134,55 @@ model Message {
   imagePublicId     String?   // Cloudinary public ID for deletion
 
   MessageCampaign MessageCampaign @relation(fields: [MessageCampaignId], references: [id], onDelete: Cascade)
+}
+
+model StatusCampaign {
+  id           String         @id @default(cuid()) @map("_id")
+  sessionId    String
+  title        String?
+  startDate    DateTime
+  endDate      DateTime
+  sendTimeUtc  DateTime
+  timeZone     String         @default("America/Chicago")
+  template     String
+  statuses     Status[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  isDeleted    Boolean        @default(false)
+  isEdited     Boolean        @default(false)
+  isCompleted  Boolean        @default(false)
+  isFreeForm   Boolean        @default(false)
+  status       CampaignStatus @default(SCHEDULED)
+  recurrence   Recurrence?
+  isRecurring  Boolean        @default(false)
+  nextSendAt   DateTime?
+
+  session      WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model Status {
+  id                String    @id @default(cuid()) @map("_id")
+  sessionId         String
+  StatusCampaignId String
+  content           String
+  scheduledAt       DateTime
+  sentAt            DateTime?
+  isPicked          Boolean   @default(false)
+  retryCount        Int       @default(0)
+  maxRetries        Int       @default(3)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  isDeleted         Boolean   @default(false)
+  isEdited          Boolean   @default(false)
+  isSent            Boolean   @default(false)
+  isFailed          Boolean   @default(false)
+  failedReason      String?
+  hasImage          Boolean   @default(false)
+  imageUrl          String?   // Cloudinary URL for the image
+  imagePublicId     String?   // Cloudinary public ID for deletion
+
+  session           WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  StatusCampaign    StatusCampaign @relation(fields: [StatusCampaignId], references: [id], onDelete: Cascade)
 }
 
 model Session {

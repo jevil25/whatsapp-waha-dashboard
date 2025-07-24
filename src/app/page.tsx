@@ -15,6 +15,8 @@ export default function Home() {
   const { data: session, isPending } = authClient.useSession();
   const router = useRouter();
 
+  const [scheduleType, setScheduleType] = useState<'message' | 'status'>('message');
+
   const [isCompletedCampaignsOpen, setIsCompletedCampaignsOpen] = useState(false);
   const [isActiveCampaignsCollapsed, setIsActiveCampaignsCollapsed] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -339,6 +341,24 @@ export default function Home() {
     },
   });
 
+  const createStatus = api.messageCampaign.createStatus.useMutation({
+    onSuccess: () => {
+      setSubmitStatus({
+        type: 'success',
+        message: 'Status update campaign created successfully!'
+      });
+      clearEditMode();
+      // refetch campaigns
+      void trpcUtils.messageCampaign.getCampaigns.invalidate();
+    },
+    onError: (error) => {
+      setSubmitStatus({
+        type: 'error',
+        message: error.message || 'Failed to create status update campaign'
+      });
+    },
+  });
+
   const updateCampaign = api.messageCampaign.updateCampaign.useMutation({
     onSuccess: () => {
       setSubmitStatus({
@@ -357,9 +377,27 @@ export default function Home() {
     },
   });
 
-  // Missing functions for edit campaign functionality
+  const updateStatus = api.messageCampaign.updateStatus.useMutation({
+    onSuccess: () => {
+      setSubmitStatus({
+        type: 'success',
+        message: 'Status update campaign updated successfully!'
+      });
+      clearEditMode();
+      // refetch campaigns
+      void trpcUtils.messageCampaign.getCampaigns.invalidate();
+    },
+    onError: (error) => {
+      setSubmitStatus({
+        type: 'error',
+        message: error.message || 'Failed to update status update campaign'
+      });
+    },
+  });
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleEditCampaign = (campaign: any) => {
+    setScheduleType("message");
     setEditingCampaign(campaign);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
     setCampaignTitle(campaign.title ?? '');
@@ -410,6 +448,63 @@ export default function Home() {
     ) ?? [];
     setImages(existingImages);
     /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleEditStatus = (status: any) => {
+    setScheduleType("status");
+    setEditingCampaign(status);
+    
+    // Format dates properly for HTML date inputs (YYYY-MM-DD)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const startDateFormatted = status.startDate ? new Date(status.startDate as string | Date).toISOString().split('T')[0] : '';
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const endDateFormatted = status.endDate ? new Date(status.endDate as string | Date).toISOString().split('T')[0] : '';
+    
+    setStartDate(startDateFormatted ?? '');
+    setEndDate(endDateFormatted ?? '');
+    
+    // Format time from sendTimeUtc - convert from UTC to status's timezone
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (status.sendTimeUtc && status.timeZone) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const utcTime = new Date(status.sendTimeUtc as string | Date);
+      
+      // Convert UTC time to the status's timezone
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const localTime = new Date(utcTime.toLocaleString("en-US", { timeZone: status.timeZone as string }));
+      
+      const hours = localTime.getHours().toString().padStart(2, '0');
+      const minutes = localTime.getMinutes().toString().padStart(2, '0');
+      setMessageTime(`${hours}:${minutes}`);
+    } else {
+      setMessageTime('12:00');
+    }
+    
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setTimeZone(status.timeZone ?? 'America/Chicago');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setMessageTemplate(status.template ?? '');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setIsRecurring(status.isRecurring ?? false);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    setRecurrence(status.recurrence ?? undefined);
+    
+    // Load existing images if any - status updates might have images
+    /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
+    const existingImages = status.statuses?.flatMap((msg: any) => 
+      msg.imageUrl && msg.imagePublicId ? [{ url: msg.imageUrl, publicId: msg.imagePublicId }] : []
+    ) ?? [];
+    setImages(existingImages);
+    /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
+    
+    // Clear campaign-specific fields since this is a status update
+    setCampaignTitle('');
+    setTargetAmount('');
+    setSelectedAudienceIds([]);
+    setSelectedAudienceNames([]);
+    setSelectedAudienceType('groups');
+    setIsFreeForm(false);
   };
 
   const clearEditMode = () => {
@@ -474,7 +569,7 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!whatsAppSession?.sessionName) return;
-    if (!editingCampaign && (!selectedAudienceIds.length || !selectedAudienceNames.length)) return;
+    if (!editingCampaign && scheduleType == "message" && (!selectedAudienceIds.length || !selectedAudienceNames.length)) return;
 
     // Only validate message sequence if the template contains asterisks
     if (messageTemplate.includes('*')) {
@@ -488,6 +583,41 @@ export default function Home() {
     const finalEndDate = !isRecurring ? startDate : endDate;
     
     if (editingCampaign) {
+      if (scheduleType === 'status') {
+        // Update status update campaign
+        try {
+          setSubmitStatus({
+            type: 'success',
+            message: `Updating status update campaign...`
+          });
+          await updateStatus.mutateAsync({
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+            statusCampaignId: editingCampaign.id,
+            endDate: finalEndDate,
+            messageTime,
+            timeZone,
+            statusText: messageTemplate,
+            isRecurring,
+            recurrence: isRecurring ? recurrence : undefined,
+            images: images.length > 0 ? images : undefined,
+            startDate: startDate,
+          });
+          setSubmitStatus({
+            type: 'success',
+            message: 'Status update campaign updated successfully!'
+          });
+          // Clear form after successful update
+          clearEditMode();
+          // Refetch campaigns
+          void trpcUtils.messageCampaign.getCampaigns.invalidate();
+        } catch (error) {
+          setSubmitStatus({
+            type: 'error',
+            message: error instanceof Error ? error.message : 'Failed to update status update campaign'
+          });
+        }
+        return;
+      }
       // Update existing campaign - still single campaign
       updateCampaign.mutate({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
@@ -506,6 +636,51 @@ export default function Home() {
         images: images.length > 0 ? images : undefined,
       });
     } else {
+      if (scheduleType === 'status') {
+        // Create status update campaign
+        try {
+          setSubmitStatus({
+            type: 'success',
+            message: `Creating status update campaign...`
+          });
+          await createStatus.mutateAsync({
+            sessionId: whatsAppSession.id,
+            endDate: finalEndDate,
+            messageTime,
+            timeZone,
+            statusText: messageTemplate,
+            isRecurring,
+            recurrence: isRecurring ? recurrence : undefined,
+            images: images.length > 0 ? images : undefined,
+            startDate: startDate,
+          });
+          setSubmitStatus({
+            type: 'success',
+            message: 'Status update campaign created successfully!'
+          });
+          // Clear form after successful creation
+          setStartDate('');
+          setEndDate('');
+          setMessageTime('12:00');
+          setMessageTemplate('');
+          setMessagePreview('');
+          setCampaignTitle('');
+          setTargetAmount('');
+          setSelectedAudienceIds([]);
+          setSelectedAudienceNames([]);
+          setSelectedAudienceType('groups');
+          setImages([]);
+          // Refetch campaigns
+          void trpcUtils.messageCampaign.getCampaigns.invalidate();
+        } catch (error) {
+          setSubmitStatus({
+            type: 'error',
+            message: error instanceof Error ? error.message : 'Failed to create status update campaign'
+          });
+        }
+        return;
+      }
+
       // Create new campaigns - potentially multiple if individuals selected
       if (!selectedAudienceIds.length || !selectedAudienceNames.length) return;
       
@@ -932,7 +1107,7 @@ export default function Home() {
                         </div>
                       </div>
                       {!isActiveCampaignsCollapsed && (
-                        <CampaignList onEditCampaign={handleEditCampaign} />
+                        <CampaignList onEditCampaign={handleEditCampaign} onEditStatus={handleEditStatus} />
                       )}
                       {isActiveCampaignsCollapsed && (
                         <div className="text-center py-4 text-gray-500">
@@ -955,7 +1130,43 @@ export default function Home() {
                         </div>
                       </div>
 
+                      {/* set schedule type option */}
+                      <div className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-lg font-semibold text-gray-800 flex items-center">
+                            <span className="mr-2">🗓️</span>
+                            Schedule Type
+                          </h4>
+                          <div className="flex items-center space-x-4">
+                            <label className="flex items-center cursor-pointer">
+                              <input
+                                type="radio"
+                                name="scheduleType"
+                                value="message"
+                                checked={scheduleType === 'message'}
+                                onChange={() => setScheduleType('message')}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">Campaign</span>
+                            </label>
+                            <label className="flex items-center cursor-pointer">
+                              <input
+                                type="radio"
+                                name="scheduleType"
+                                value="status"
+                                checked={scheduleType === 'status'}
+                                onChange={() => setScheduleType('status')}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">Status Update</span>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="p-6 overflow-visible">
+                        {scheduleType == "message" && (
+                          <>
                         {/* 1. Audience Settings */}
                         <div className="mb-8">
                           <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
@@ -1031,6 +1242,7 @@ export default function Home() {
                             )}
                           </div>
                         </div>
+                        </>)}
 
                         {/* Status Messages */}
                         {submitStatus && (
@@ -1049,12 +1261,12 @@ export default function Home() {
                         )}
 
                         {/* Show form only if audience is selected or editing */}
-                        {(selectedAudienceIds.length || editingCampaign) && (
+                        {((selectedAudienceIds.length || editingCampaign) ?? scheduleType == "status") && (
                           <div className="space-y-8">
                             {/* Form Header */}
                             <div className="flex justify-between items-center">
                               <h4 className="text-xl font-semibold text-gray-800">
-                                {editingCampaign ? '✏️ Edit Campaign' : '📝 Create New Campaign'}
+                                {editingCampaign ? '✏️ Edit ' : '📝 Create New '}{scheduleType === 'message' ? 'Message Campaign' : 'Status Update'}
                               </h4>
                               {editingCampaign && (
                                 <button
@@ -1070,7 +1282,7 @@ export default function Home() {
                               {/* 3. Message Frequency & Timing */}
                               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
                                 <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                                  <span className="mr-2">3️⃣</span>
+                                  <span className="mr-2">{scheduleType === "status" ? "1️⃣" : "3️⃣"}</span>
                                   <span className="mr-2">⏰</span>
                                   Message Frequency & Timing
                                 </h4>
@@ -1186,7 +1398,7 @@ export default function Home() {
                               {/* 4. Message Type */}
                               <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
                                 <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                                  <span className="mr-2">4️⃣</span>
+                                  <span className="mr-2">{scheduleType === "status" ? "2️⃣" : "4️⃣"}</span>
                                   <span className="mr-2">📝</span>
                                   Message Type
                                 </h4>
@@ -1219,7 +1431,7 @@ export default function Home() {
                               </div>
 
                               {/* 5. Structured Message Fields */}
-                              {!isFreeForm && (
+                              {!isFreeForm && scheduleType === "message" && (
                                 <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
                                   <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                                     <span className="mr-2">5️⃣</span>
@@ -1262,7 +1474,7 @@ export default function Home() {
                               {/* 6. Message Content */}
                               <div className="bg-gradient-to-r from-[#fff3e0] to-[#ffd9b3] rounded-xl p-6 border border-[#d97809]">
                                 <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                                  <span className="mr-2">6️⃣</span>
+                                  <span className="mr-2">{scheduleType === "status" ? "3️⃣" : "6️⃣"}</span>
                                   <span className="mr-2">📨</span>
                                   {isFreeForm ? 'Free Form Message Block' : 'Message Content'}
                                 </h4>
@@ -1346,17 +1558,43 @@ export default function Home() {
 
                               {/* Message Preview */}
                               {messageTemplate && messagePreview && (
-                                <div className="bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl p-6 border border-gray-200">
-                                  <h5 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
-                                    <span className="mr-2">👁️</span>
-                                    Message Preview
-                                  </h5>
-                                  <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                                    <div className="whitespace-pre-wrap text-sm text-gray-700 font-mono leading-relaxed">
-                                      {messagePreview}
+                                scheduleType === "status" ? (
+                                  <div className="flex flex-col items-center justify-center rounded-xl p-0 border border-blue-400 shadow-lg min-h-[480px] w-[320px] mx-auto relative" style={{background:'#FFFBEA'}}>
+                                    {images && images.length > 0 && images[0]?.url ? (
+                                      <>
+                                        <div className="w-full h-[320px] flex items-center justify-center overflow-hidden rounded-t-xl">
+                                          <Image src={images[0].url} alt="Status Image" width={320} height={320} className="object-cover w-full h-full" style={{maxHeight:320}} />
+                                        </div>
+                                        <div className="w-full px-4 py-4 flex items-center justify-center">
+                                          <span className="text-lg font-semibold text-center" style={{color:'#030719'}}>
+                                            {messagePreview}
+                                          </span>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="flex flex-col items-center justify-center w-full h-full min-h-[480px]">
+                                        <span className="text-2xl font-semibold text-center px-6 py-12" style={{color:'#030719'}}>
+                                          {messagePreview}
+                                        </span>
+                                      </div>
+                                    )}
+                                    <div className="w-full text-center py-2 text-xs text-gray-500 border-t border-blue-100">
+                                      This preview is for representation only.
                                     </div>
                                   </div>
-                                </div>
+                                ) : (
+                                  <div className="bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl p-6 border border-gray-200">
+                                    <h5 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+                                      <span className="mr-2">👁️</span>
+                                      Message Preview
+                                    </h5>
+                                    <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                      <div className="whitespace-pre-wrap text-sm text-gray-700 font-mono leading-relaxed">
+                                        {messagePreview}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
                               )}
 
                               {/* Submit Button */}
@@ -1368,7 +1606,7 @@ export default function Home() {
                                     (editingCampaign ? updateCampaign.isPending : createCampaign.isPending) || 
                                     !startDate || (!isRecurring ? false : !endDate) || !messageTemplate || 
                                     (isRecurring && !recurrence) ||
-                                    (!editingCampaign && (!selectedAudienceIds.length || !selectedAudienceNames.length))
+                                    (!editingCampaign && scheduleType == "message" && (!selectedAudienceIds.length || !selectedAudienceNames.length))
                                   }
                                 >
                                   <span>
