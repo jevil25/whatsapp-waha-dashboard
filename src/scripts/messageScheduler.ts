@@ -23,9 +23,26 @@ async function checkAndSendScheduledMessages() {
             }
         });
 
+        // Get all statuses that are scheduled and not sent yet
+        const pendingStatuses = await prisma.status.findMany({
+            where: {
+                isSent: false,
+                isDeleted: false,
+                isPicked: false,
+            },
+            include: {
+                StatusCampaign: true,
+            }
+        });
+
         // Filter messages that are scheduled to be sent now or earlier
         const messagesToSend = pendingMessages.filter(message => {
             return message.scheduledAt <= now && message.scheduledAt >= two_minutesAgo;
+        });
+
+        // Filter statuses that are scheduled to be sent now or earlier
+        const statusesToSend = pendingStatuses.filter(status => {
+            return status.scheduledAt <= now && status.scheduledAt >= two_minutesAgo;
         });
 
         await prisma.message.updateMany({
@@ -39,12 +56,29 @@ async function checkAndSendScheduledMessages() {
             }
         });
 
+        await prisma.status.updateMany({
+            where: {
+                id: {
+                    in: statusesToSend.map(status => status.id)
+                },
+            },
+            data: {
+                isPicked: true,
+            }
+        });
+
         if (messagesToSend.length === 0) {
             console.log(`[${now.toISOString()}] No pending messages to send`);
             return;
         }
 
         console.log(`[${now.toISOString()}] Found ${messagesToSend.length} messages to send`);
+
+        if (statusesToSend.length === 0) {
+            console.log(`[${now.toISOString()}] No pending statuses to send`);
+        } else {
+            console.log(`[${now.toISOString()}] Found ${statusesToSend.length} statuses to send`);
+        }
 
         for (const message of messagesToSend) {
             try {
@@ -151,6 +185,115 @@ async function checkAndSendScheduledMessages() {
                     await prisma.messageCampaign.update({
                         where: {
                             id: message.MessageCampaign.id
+                        },
+                        data: {
+                            status: CampaignStatus.FAILED
+                        }
+                    });
+                }
+            }
+        }
+
+        // Send statuses (stories)
+        for (const status of statusesToSend) {
+            try {
+                const session = await prisma.whatsAppSession.findUnique({
+                    where: {
+                        id: status.sessionId
+                    }
+                });
+                // Send status using WhatsApp API
+                console.log(`Sending status: ${status.content}`);
+                console.log(`Status ID: ${status.id}, Scheduled At: ${status.scheduledAt.toISOString()}`);
+
+                let response: Response;
+                const statusWithImage = status as typeof status & { hasImage: boolean; imageUrl: string | null };
+
+                if (statusWithImage.hasImage && statusWithImage.imageUrl) {
+                    // Send image status (story)
+                    console.log(`Sending image status with URL: ${statusWithImage.imageUrl}`);
+                    response = await fetch(`${process.env.WAHA_API_URL}/api/sendStatus`, {
+                        method: 'POST',
+                        headers: {
+                            'accept': 'application/json',
+                            'X-Api-Key': process.env.WAHA_API_KEY ?? '',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            file: {
+                                url: statusWithImage.imageUrl,
+                                mimetype: "image/jpeg",
+                                filename: "image.jpg"
+                            },
+                            caption: status.content,
+                            session: session?.sessionName,
+                        })
+                    });
+                    await deleteFromCloudinary(statusWithImage.imagePublicId ?? "");
+                } else {
+                    // Send text status (story)
+                    response = await fetch(`${process.env.WAHA_API_URL}/api/sendStatus`, {
+                        method: 'POST',
+                        headers: {
+                            'accept': 'application/json',
+                            'X-Api-Key': process.env.WAHA_API_KEY ?? '',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            text: status.content,
+                            session: session?.sessionName,
+                        })
+                    });
+                }
+
+                if (response.status !== 201) {
+                    throw new Error(`Failed to send WhatsApp status: ${response.statusText}`);
+                }
+
+                // Update status as sent
+                await prisma.status.update({
+                    where: {
+                        id: status.id
+                    },
+                    data: {
+                        isSent: true,
+                        sentAt: now
+                    }
+                });
+
+                // Also update the status campaign if this was the last status
+                if (status.StatusCampaign) {
+                    const remainingStatuses = await prisma.status.count({
+                        where: {
+                            StatusCampaign: {
+                                id: status.StatusCampaign.id
+                            },
+                            isSent: false,
+                        }
+                    });
+
+                    if (remainingStatuses === 0) {
+                        await prisma.statusCampaign.update({
+                            where: {
+                                id: status.StatusCampaign.id
+                            },
+                            data: {
+                                status: CampaignStatus.COMPLETED,
+                                isCompleted: true
+                            }
+                        });
+                    }
+                }
+
+                console.log(`Successfully processed status ${status.id}`);
+            } catch (error) {
+                console.error(`Error processing status ${status.id}:`, error);
+
+                // If there's an error, mark the status campaign as failed
+                if (status.StatusCampaign) {
+                    await prisma.statusCampaign.update({
+                        where: {
+                            id: status.StatusCampaign.id
                         },
                         data: {
                             status: CampaignStatus.FAILED
