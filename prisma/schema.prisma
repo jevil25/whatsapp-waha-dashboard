@@ -132,6 +132,9 @@ model Message {
   hasImage          Boolean   @default(false)
   imageUrl          String?   // Cloudinary URL for the image
   imagePublicId     String?   // Cloudinary public ID for deletion
+  hasVideo          Boolean   @default(false)
+  videoUrl          String?   // Cloudinary URL for the video
+  videoPublicId     String?   // Cloudinary public ID for deletion
 
   MessageCampaign MessageCampaign @relation(fields: [MessageCampaignId], references: [id], onDelete: Cascade)
 }
@@ -180,6 +183,9 @@ model Status {
   hasImage          Boolean   @default(false)
   imageUrl          String?   // Cloudinary URL for the image
   imagePublicId     String?   // Cloudinary public ID for deletion
+  hasVideo          Boolean   @default(false)
+  videoUrl          String?   // Cloudinary URL for the video
+  videoPublicId     String?   // Cloudinary public ID for deletion
 
   session           WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   StatusCampaign    StatusCampaign @relation(fields: [StatusCampaignId], references: [id], onDelete: Cascade)

@@ -93,11 +93,40 @@ async function checkAndSendScheduledMessages() {
                 let response: Response;
                 
                 // Type assertion to access the new fields until TypeScript types are updated
-                const messageWithImage = message as typeof message & { hasImage: boolean; imageUrl: string | null };
+                const messageMedia = message as typeof message & { 
+                  hasImage: boolean; 
+                  imageUrl: string | null;
+                  hasVideo: boolean;
+                  videoUrl: string | null;
+                  imagePublicId: string | null;
+                  videoPublicId: string | null;
+                };
                 
-                if (messageWithImage.hasImage && messageWithImage.imageUrl) {
+                if (messageMedia.hasVideo && messageMedia.videoUrl) {
+                    // Send video message
+                    console.log(`Sending video message with URL: ${messageMedia.videoUrl}`);
+                    response = await fetch(`${process.env.WAHA_API_URL}/api/sendVideo`, {
+                        method: 'POST',
+                        headers: {
+                            'accept': 'application/json',
+                            'X-Api-Key': process.env.WAHA_API_KEY ?? '',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            chatId: message.MessageCampaign?.group.groupId,
+                            file: {
+                                url: messageMedia.videoUrl,
+                                mimetype: "video/mp4",
+                                filename: "video.mp4"
+                            },
+                            caption: message.content,
+                            session: session?.sessionName,
+                        })
+                    });
+                    await deleteFromCloudinary(messageMedia.videoPublicId ?? "");
+                } else if (messageMedia.hasImage && messageMedia.imageUrl) {
                     // Send image message
-                    console.log(`Sending image message with URL: ${messageWithImage.imageUrl}`);
+                    console.log(`Sending image message with URL: ${messageMedia.imageUrl}`);
                     response = await fetch(`${process.env.WAHA_API_URL}/api/sendImage`, {
                         method: 'POST',
                         headers: {
@@ -108,7 +137,7 @@ async function checkAndSendScheduledMessages() {
                         body: JSON.stringify({
                             chatId: message.MessageCampaign?.group.groupId,
                             file: {
-                                url: messageWithImage.imageUrl,
+                                url: messageMedia.imageUrl,
                                 mimetype: "image/jpeg",
                                 filename: "image.jpg"
                             },
@@ -116,7 +145,7 @@ async function checkAndSendScheduledMessages() {
                             session: session?.sessionName,
                         })
                     });
-                    await deleteFromCloudinary(messageWithImage.imagePublicId ?? "");
+                    await deleteFromCloudinary(messageMedia.imagePublicId ?? "");
                 } else {
                     // Send text message
                     response = await fetch(`${process.env.WAHA_API_URL}/api/sendText`, {
@@ -206,11 +235,37 @@ async function checkAndSendScheduledMessages() {
                 console.log(`Status ID: ${status.id}, Scheduled At: ${status.scheduledAt.toISOString()}`);
 
                 let response: Response;
-                const statusWithImage = status as typeof status & { hasImage: boolean; imageUrl: string | null };
+                const statusMedia = status as typeof status & { 
+                  hasImage: boolean; 
+                  imageUrl: string | null;
+                  hasVideo: boolean;
+                  videoUrl: string | null;
+                  imagePublicId: string | null;
+                  videoPublicId: string | null;
+                };
 
-                if (statusWithImage.hasImage && statusWithImage.imageUrl) {
+                if (statusMedia.hasVideo && statusMedia.videoUrl) {
+                    // Send video status (story)
+                    console.log(`Sending video status with URL: ${statusMedia.videoUrl}`);
+                    response = await fetch(`${process.env.WAHA_API_URL}/api/${session?.sessionName}/status/video`, {
+                        method: 'POST',
+                        headers: {
+                            'accept': 'application/json',
+                            'X-Api-Key': process.env.WAHA_API_KEY ?? '',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            file: {
+                                url: statusMedia.videoUrl,
+                                mimetype: "video/mp4",
+                            },
+                            caption: status.content,
+                        })
+                    });
+                    await deleteFromCloudinary(statusMedia.videoPublicId ?? "");
+                } else if (statusMedia.hasImage && statusMedia.imageUrl) {
                     // Send image status (story)
-                    console.log(`Sending image status with URL: ${statusWithImage.imageUrl}`);
+                    console.log(`Sending image status with URL: ${statusMedia.imageUrl}`);
                     response = await fetch(`${process.env.WAHA_API_URL}/api/${session?.sessionName}/status/image`, {
                         method: 'POST',
                         headers: {
@@ -220,13 +275,13 @@ async function checkAndSendScheduledMessages() {
                         },
                         body: JSON.stringify({
                             file: {
-                                url: statusWithImage.imageUrl,
+                                url: statusMedia.imageUrl,
                                 mimetype: "image/jpeg",
                             },
                             caption: status.content,
                         })
                     });
-                    await deleteFromCloudinary(statusWithImage.imagePublicId ?? "");
+                    await deleteFromCloudinary(statusMedia.imagePublicId ?? "");
                 } else {
                     // Send text status (story)
                     response = await fetch(`${process.env.WAHA_API_URL}/api/${session?.sessionName}/status/text`, {

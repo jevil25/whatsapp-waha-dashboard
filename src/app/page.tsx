@@ -9,7 +9,7 @@ import { type WhatsAppSessionStatus } from "~/types/session";
 import { AudienceSelector } from './_components/whatsapp/AudienceSelector';
 import { CampaignList } from './_components/whatsapp/CampaignList';
 import { CompletedCampaignsModal } from './_components/whatsapp/CompletedCampaignsModal';
-import { ImageUpload } from './_components/whatsapp/ImageUpload';
+import { MediaUpload } from './_components/whatsapp/MediaUpload';
 
 export default function Home() {
   const { data: session, isPending } = authClient.useSession();
@@ -112,7 +112,7 @@ export default function Home() {
   /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any */
   
   // State for image uploads
-  const [images, setImages] = useState<Array<{ url: string; publicId: string; file?: File }>>([]);
+  const [media, setMedia] = useState<Array<{ url: string; publicId: string; type: 'image' | 'video'; file?: File }>>([]);
 
   const { data: whatsAppSession, isLoading: isWhatsAppLoading } = api.user.getWhatsAppSession.useQuery(undefined, {
     enabled: !!session?.user && session.user.role !== 'GUEST',
@@ -329,7 +329,7 @@ export default function Home() {
     message: string;
   } | null>(null);
 
-  const createCampaign = api.messageCampaign.createCampaign.useMutation({
+  const createCampaign = api.messageCampaignV2.createCampaign.useMutation({
     onSuccess: () => {
       // Success handled in handleSubmit for multiple campaigns
     },
@@ -341,7 +341,7 @@ export default function Home() {
     },
   });
 
-  const createStatus = api.messageCampaign.createStatus.useMutation({
+  const createStatus = api.messageCampaignV2.createStatus.useMutation({
     onSuccess: () => {
       setSubmitStatus({
         type: 'success',
@@ -441,12 +441,19 @@ export default function Home() {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
     setRecurrence(campaign.recurrence ?? undefined);
     
-    // Load existing images if any
+    // Load existing media if any
     /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
-    const existingImages = campaign.messages?.flatMap((msg: any) => 
-      msg.imageUrl && msg.imagePublicId ? [{ url: msg.imageUrl, publicId: msg.imagePublicId }] : []
-    ) ?? [];
-    setImages(existingImages);
+    const existingMedia = campaign.messages?.flatMap((msg: any) => {
+      const mediaItems = [];
+      if (msg.imageUrl && msg.imagePublicId) {
+        mediaItems.push({ url: msg.imageUrl, publicId: msg.imagePublicId, type: 'image' as const });
+      }
+      if (msg.videoUrl && msg.videoPublicId) {
+        mediaItems.push({ url: msg.videoUrl, publicId: msg.videoPublicId, type: 'video' as const });
+      }
+      return mediaItems;
+    }) ?? [];
+    setMedia(existingMedia);
     /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
   };
 
@@ -490,12 +497,19 @@ export default function Home() {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
     setRecurrence(status.recurrence ?? undefined);
     
-    // Load existing images if any - status updates might have images
+    // Load existing media if any - status updates might have media
     /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
-    const existingImages = status.statuses?.flatMap((msg: any) => 
-      msg.imageUrl && msg.imagePublicId ? [{ url: msg.imageUrl, publicId: msg.imagePublicId }] : []
-    ) ?? [];
-    setImages(existingImages);
+    const existingMedia = status.statuses?.flatMap((msg: any) => {
+      const mediaItems = [];
+      if (msg.imageUrl && msg.imagePublicId) {
+        mediaItems.push({ url: msg.imageUrl, publicId: msg.imagePublicId, type: 'image' as const });
+      }
+      if (msg.videoUrl && msg.videoPublicId) {
+        mediaItems.push({ url: msg.videoUrl, publicId: msg.videoPublicId, type: 'video' as const });
+      }
+      return mediaItems;
+    }) ?? [];
+    setMedia(existingMedia);
     /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
     
     // Clear campaign-specific fields since this is a status update
@@ -517,7 +531,7 @@ export default function Home() {
     setTimeZone('America/Chicago');
     setMessageTemplate('');
     setIsRecurring(false);
-    setImages([]);
+    setMedia([]);
     setIsFreeForm(false);
     setRecurrence(undefined);
     setSubmitStatus(null);
@@ -599,7 +613,7 @@ export default function Home() {
             statusText: messageTemplate,
             isRecurring,
             recurrence: isRecurring ? recurrence : undefined,
-            images: images.length > 0 ? images : undefined,
+            images: media.length > 0 ? media.map(m => ({url: m.url, publicId: m.publicId})) : undefined,
             startDate: startDate,
           });
           setSubmitStatus({
@@ -633,7 +647,7 @@ export default function Home() {
         isFreeForm,
         recurrence: isRecurring ? recurrence : undefined,
         audienceType: selectedAudienceType,
-        images: images.length > 0 ? images : undefined,
+        images: media.length > 0 ? media.map(m => ({url: m.url, publicId: m.publicId})) : undefined,
       });
     } else {
       if (scheduleType === 'status') {
@@ -652,7 +666,7 @@ export default function Home() {
             isRecurring,
             isFreeForm,
             recurrence: isRecurring ? recurrence : undefined,
-            images: images.length > 0 ? images : undefined,
+            media: media.length > 0 ? media : undefined,
             startDate: startDate,
           });
           setSubmitStatus({
@@ -670,7 +684,7 @@ export default function Home() {
           setSelectedAudienceIds([]);
           setSelectedAudienceNames([]);
           setSelectedAudienceType('groups');
-          setImages([]);
+          setMedia([]);
           // Refetch campaigns
           void trpcUtils.messageCampaign.getCampaigns.invalidate();
         } catch (error) {
@@ -711,7 +725,7 @@ export default function Home() {
             isFreeForm,
             recurrence: isRecurring ? recurrence : undefined,
             audienceType: selectedAudienceType,
-            images: images.length > 0 ? images : undefined,
+            media: media.length > 0 ? media : undefined,
           });
         });
 
@@ -734,12 +748,10 @@ export default function Home() {
         setSelectedAudienceIds([]);
         setSelectedAudienceNames([]);
         setSelectedAudienceType('groups');
-        setImages([]);
-        
-        // Refetch campaigns
-        void trpcUtils.messageCampaign.getCampaigns.invalidate();
-        
-      } catch (error) {
+          setMedia([]);
+          
+          // Refetch campaigns
+          void trpcUtils.messageCampaign.getCampaigns.invalidate();      } catch (error) {
         setSubmitStatus({
           type: 'error',
           message: error instanceof Error ? error.message : 'Failed to create campaigns'
@@ -1542,16 +1554,16 @@ export default function Home() {
                                 </div>
                               </div>
 
-                              {/* Image Upload */}
+                              {/* Media Upload */}
                               <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-200">
                                 <h5 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
-                                  <span className="mr-2">🖼️</span>
-                                  Images
+                                  <span className="mr-2">�</span>
+                                  Media
                                 </h5>
-                                <ImageUpload
-                                  images={images}
-                                  onImagesChange={setImages}
-                                  maxImages={isRecurring && messageSequence.length > 1 ? messageSequence.length : 1}
+                                <MediaUpload
+                                  media={media}
+                                  onMediaChange={setMedia}
+                                  maxFiles={isRecurring && messageSequence.length > 1 ? messageSequence.length : 1}
                                   isRecurring={isRecurring}
                                   recurrence={recurrence}
                                 />
@@ -1561,10 +1573,10 @@ export default function Home() {
                               {messageTemplate && messagePreview && (
                                 scheduleType === "status" ? (
                                   <div className="flex flex-col items-center justify-center rounded-xl p-0 border border-blue-400 shadow-lg min-h-[480px] w-[320px] mx-auto relative" style={{background:'#C2A240'}}>
-                                    {images && images.length > 0 && images[0]?.url ? (
+                                    {media && media.length > 0 && media[0]?.url ? (
                                       <>
                                         <div className="w-full h-[320px] flex items-center justify-center overflow-hidden rounded-t-xl">
-                                          <Image src={images[0].url} alt="Status Image" width={320} height={320} className="object-cover w-full h-full" style={{maxHeight:320}} />
+                                          <Image src={media[0].url} alt={`Status ${media[0].type}`} width={320} height={320} className="object-cover w-full h-full" style={{maxHeight:320}} />
                                         </div>
                                         <div className="w-full px-4 py-4 flex items-center justify-center">
                                           <span className="text-lg font-semibold text-center text-white">

@@ -2,6 +2,7 @@ import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 import { adminRouter } from "./routers/admin";
 import { userRouter } from "./routers/user";
 import { messageCampaignRouter } from "./routers/messageCampaign";
+import { messageCampaignRouterV2 } from "./routers/messageCampaign.v2";
 import { notificationRouter } from "./routers/notification";
 
 /**
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
   admin: adminRouter,
   user: userRouter,
   messageCampaign: messageCampaignRouter,
+  messageCampaignV2: messageCampaignRouterV2,
   notification: notificationRouter,
 });
 
