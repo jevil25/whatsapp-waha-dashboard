@@ -5,7 +5,6 @@ import { DateTime } from "luxon";
 import { deleteFromCloudinary } from "~/lib/cloudinary";
 import { mediaSchema } from "~/types/media.schema";
 import { addMediaToItem } from "~/utils/mediaHelpers";
-import type { UploadedMedia } from "~/types/media";
 
 // Base schema for campaign input
 const campaignInput = {
@@ -52,8 +51,8 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       if (!timeMatch) throw new Error('Invalid time format');
 
       const [_, hours, minutes] = timeMatch;
-      const messageHour = parseInt(hours);
-      const messageMinute = parseInt(minutes);
+      const messageHour = parseInt(hours ? hours : '0');
+      const messageMinute = parseInt(minutes ? minutes : '0');
 
       // Parse dates in the campaign time zone
       const startDt = DateTime.fromISO(startDate).setZone(timeZone).set({
@@ -101,17 +100,7 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       }
 
       // Prepare messages array
-      const messages: Array<{
-        sessionId: string;
-        content: string;
-        scheduledAt: Date;
-        hasImage: boolean;
-        imageUrl?: string;
-        imagePublicId?: string;
-        hasVideo: boolean;
-        videoUrl?: string;
-        videoPublicId?: string;
-      }> = [];
+      const messages = [];
 
       let sequenceIndex = 0;
       let currentDate = startDt;
@@ -229,8 +218,8 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       if (!timeMatch) throw new Error('Invalid time format');
 
       const [_, hours, minutes] = timeMatch;
-      const messageHour = parseInt(hours);
-      const messageMinute = parseInt(minutes);
+      const messageHour = parseInt(hours ? hours : '0');
+      const messageMinute = parseInt(minutes ? minutes : '0');
 
       // Parse dates
       const startDt = DateTime.fromISO(startDate).setZone(timeZone).set({
@@ -278,17 +267,7 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       }
 
       // Prepare statuses array
-      const statuses: Array<{
-        sessionId: string;
-        content: string;
-        scheduledAt: Date;
-        hasImage: boolean;
-        imageUrl?: string;
-        imagePublicId?: string;
-        hasVideo: boolean;
-        videoUrl?: string;
-        videoPublicId?: string;
-      }> = [];
+      const statuses = [];
 
       let sequenceIndex = 0;
       let currentDate = startDt;
