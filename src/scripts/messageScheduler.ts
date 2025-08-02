@@ -113,14 +113,16 @@ async function checkAndSendScheduledMessages() {
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
+                            session: session?.sessionName,
                             chatId: message.MessageCampaign?.group.groupId,
+                            caption: message.content,
+                            asNote: false,
                             file: {
                                 url: messageMedia.videoUrl,
                                 mimetype: "video/mp4",
                                 filename: "video.mp4"
                             },
-                            caption: message.content,
-                            session: session?.sessionName,
+                            convert: true,
                         })
                     });
                     await deleteFromCloudinary(messageMedia.videoPublicId ?? "");
@@ -166,6 +168,7 @@ async function checkAndSendScheduledMessages() {
                 }
 
                 if (response.status !== 201) {
+                    console.log(response)
                     throw new Error(`Failed to send WhatsApp message: ${response.statusText}`);
                 }
 
@@ -257,8 +260,10 @@ async function checkAndSendScheduledMessages() {
                         body: JSON.stringify({
                             file: {
                                 url: statusMedia.videoUrl,
-                                mimetype: "video/mp4",
+                                mimetype: "video/mp4"
                             },
+                            backgroundColor: "#38b42f",
+                            convert: true,
                             caption: status.content,
                         })
                     });

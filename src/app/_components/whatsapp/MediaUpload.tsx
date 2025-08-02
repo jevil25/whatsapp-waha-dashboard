@@ -72,7 +72,7 @@ export function MediaUpload({
       onMediaChange([...media, ...uploadedFiles]);
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Failed to upload media. Please try again.');
+      alert(error ?? 'Failed to upload media. Please try again.');
     } finally {
       setUploading(false);
       if (fileInputRef.current) {

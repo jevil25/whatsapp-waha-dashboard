@@ -1576,7 +1576,23 @@ export default function Home() {
                                     {media && media.length > 0 && media[0]?.url ? (
                                       <>
                                         <div className="w-full h-[320px] flex items-center justify-center overflow-hidden rounded-t-xl">
-                                          <Image src={media[0].url} alt={`Status ${media[0].type}`} width={320} height={320} className="object-cover w-full h-full" style={{maxHeight:320}} />
+                                          {media[0].type === 'video' ? (
+                                            <video
+                                              src={media[0].url}
+                                              controls
+                                              className="object-cover w-full h-full"
+                                              style={{ maxHeight: 320 }}
+                                            />
+                                          ) : (
+                                            <Image
+                                              src={media[0].url}
+                                              alt={`Status ${media[0].type}`}
+                                              width={320}
+                                              height={320}
+                                              className="object-cover w-full h-full"
+                                              style={{ maxHeight: 320 }}
+                                            />
+                                          )}
                                         </div>
                                         <div className="w-full px-4 py-4 flex items-center justify-center">
                                           <span className="text-lg font-semibold text-center text-white">
