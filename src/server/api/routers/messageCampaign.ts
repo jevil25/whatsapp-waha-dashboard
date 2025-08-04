@@ -579,6 +579,9 @@ getCampaigns: protectedProcedure
               hasImage: true,
               imageUrl: true,
               imagePublicId: true,
+              hasVideo: true,
+              videoUrl: true,
+              videoPublicId: true,
             },
             orderBy: {
               scheduledAt: 'asc'

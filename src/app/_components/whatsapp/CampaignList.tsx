@@ -3,33 +3,41 @@ import { DateTime } from "luxon";
 import { useState } from "react";
 import ConfirmationModal from "../ConfirmationModal"
 
+export interface Message {
+  id: string;
+  content: string;
+  scheduledAt: Date;
+  sentAt: Date | null;
+  isSent: boolean;
+  isFailed: boolean;
+  hasImage: boolean;
+  imageUrl: string | null;
+  imagePublicId: string | null;
+  hasVideo?: boolean;
+  videoUrl?: string | null;
+  videoPublicId?: string | null;
+}
+
 export interface Campaign {
   id: string;
   title?: string | null;
   targetAmount?: string | null;
   startDate: Date;
   endDate: Date;
-  sendTimeUtc: string | Date;
-  timeZone?: string;
+  sendTimeUtc: Date;
+  timeZone: string;
   template: string;
   status: string;
   createdAt: Date;
+  isRecurring: boolean;
+  isFreeForm: boolean;
+  recurrence: 'DAILY' | 'WEEKLY' | 'SEMI_MONTHLY' | 'MONTHLY' | 'SEMI_ANNUALLY' | 'ANNUALLY' | null;
   group: {
     id: string;
     groupName: string;
     groupId: string;
   };
-  messages: Array<{
-    id: string;
-    content: string;
-    scheduledAt: Date;
-    sentAt?: Date | null;
-    isSent: boolean;
-    isFailed: boolean;
-    hasImage?: boolean;
-    imageUrl?: string | null;
-    imagePublicId?: string | null;
-  }>;
+  messages: Message[];
 }
 
 export interface Status {
@@ -37,22 +45,31 @@ export interface Status {
   title?: string | null;
   startDate: Date;
   endDate: Date;
-  sendTimeUtc: string | Date;
-  timeZone?: string;
+  sendTimeUtc: Date;
+  timeZone: string;
   template: string;
   status: string;
   createdAt: Date;
-  statuses: Array<{
-    id: string;
-    content: string;
-    scheduledAt: Date;
-    sentAt?: Date | null;
-    isSent: boolean;
-    isFailed: boolean;
-    hasImage?: boolean;
-    imageUrl?: string | null;
-    imagePublicId?: string | null;
-  }>;
+  isRecurring: boolean;
+  isFreeForm: boolean;
+  recurrence: 'DAILY' | 'WEEKLY' | 'SEMI_MONTHLY' | 'MONTHLY' | 'SEMI_ANNUALLY' | 'ANNUALLY' | null;
+  statuses: Message[];
+}// The shape used in edit forms and mutation inputs
+
+export interface Status {
+  id: string;
+  title?: string | null;
+  startDate: Date;
+  endDate: Date;
+  sendTimeUtc: Date;
+  timeZone: string;
+  template: string;
+  status: string;
+  createdAt: Date;
+  isRecurring: boolean;
+  isFreeForm: boolean;
+  recurrence: 'DAILY' | 'WEEKLY' | 'SEMI_MONTHLY' | 'MONTHLY' | 'SEMI_ANNUALLY' | 'ANNUALLY' | null;
+  statuses: Message[];
 }
 
 interface CampaignListProps {

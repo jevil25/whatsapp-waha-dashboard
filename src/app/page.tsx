@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { type WhatsAppSessionStatus } from "~/types/session";
 import { AudienceSelector } from './_components/whatsapp/AudienceSelector';
-import { CampaignList } from './_components/whatsapp/CampaignList';
+import { CampaignList, type Status, type Campaign as CampaignType, type Message } from './_components/whatsapp/CampaignList';
 import { CompletedCampaignsModal } from './_components/whatsapp/CompletedCampaignsModal';
 import { MediaUpload } from './_components/whatsapp/MediaUpload';
 
@@ -107,9 +107,55 @@ export default function Home() {
   ];
 
   // State for editing campaigns
-  /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any */
-  const [editingCampaign, setEditingCampaign] = useState<any>(null);
-  /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any */
+  interface Campaign {
+    id: string;
+    title?: string;
+    targetAmount?: string;
+    startDate: Date | string;
+    endDate: Date | string;
+    sendTimeUtc: Date | string;
+    timeZone: string;
+    template: string;
+    status: string;
+    createdAt: Date | string;
+    isRecurring: boolean;
+    isFreeForm: boolean;
+    recurrence?: 'DAILY' | 'WEEKLY' | 'SEMI_MONTHLY' | 'MONTHLY' | 'SEMI_ANNUALLY' | 'ANNUALLY';
+    group?: {
+      id: string;
+      groupName: string;
+      groupId: string;
+    };
+    messages?: Array<{
+      id: string;
+      content: string;
+      scheduledAt: Date | string;
+      sentAt?: Date | string;
+      isSent: boolean;
+      isFailed: boolean;
+      hasImage: boolean;
+      imageUrl?: string;
+      imagePublicId?: string;
+      hasVideo: boolean;
+      videoUrl?: string;
+      videoPublicId?: string;
+    }>;
+    statuses?: Array<{
+      id: string;
+      content: string;
+      scheduledAt: Date | string;
+      sentAt?: Date | string;
+      isSent: boolean;
+      isFailed: boolean;
+      hasImage: boolean;
+      imageUrl?: string;
+      imagePublicId?: string;
+      hasVideo: boolean;
+      videoUrl?: string;
+      videoPublicId?: string;
+    }>;
+  };
+  const [editingCampaign, setEditingCampaign] = useState<CampaignType | Status | null>(null);
   
   // State for image uploads
   const [media, setMedia] = useState<Array<{ url: string; publicId: string; type: 'image' | 'video'; file?: File }>>([]);
@@ -359,7 +405,7 @@ export default function Home() {
     },
   });
 
-  const updateCampaign = api.messageCampaign.updateCampaign.useMutation({
+  const updateCampaign = api.messageCampaignV2.updateCampaign.useMutation({
     onSuccess: () => {
       setSubmitStatus({
         type: 'success',
@@ -372,12 +418,12 @@ export default function Home() {
     onError: (error) => {
       setSubmitStatus({
         type: 'error',
-        message: error.message || 'Failed to update message campaign'
+        message: error.message ?? 'Failed to update message campaign'
       });
     },
   });
 
-  const updateStatus = api.messageCampaign.updateStatus.useMutation({
+  const updateStatus = api.messageCampaignV2.updateStatus.useMutation({
     onSuccess: () => {
       setSubmitStatus({
         type: 'success',
@@ -390,66 +436,89 @@ export default function Home() {
     onError: (error) => {
       setSubmitStatus({
         type: 'error',
-        message: error.message || 'Failed to update status update campaign'
+        message: error.message ?? 'Failed to update status update campaign'
       });
     },
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleEditCampaign = (campaign: any) => {
+
+const extractMediaFromMessages = (messages: Message[]) => {
+  const seen = new Set<string>();
+  const result = [];
+
+  for (const msg of messages) {
+    const candidates = [];
+
+    if (msg.hasImage && msg.imageUrl) {
+      candidates.push({
+        url: msg.imageUrl,
+        publicId: msg.imagePublicId,
+        type: 'image',
+      });
+    }
+
+    if (msg.hasVideo && msg.videoUrl) {
+      candidates.push({
+        url: msg.videoUrl,
+        publicId: msg.videoPublicId,
+        type: 'video',
+      });
+    }
+
+    for (const item of candidates) {
+      const key = item.publicId ?? item.url;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(item);
+      }
+    }
+  }
+
+  console.log(`result: ${result.length}`)
+
+  return result;
+};
+
+  const handleEditCampaign = (campaign: CampaignType) => {
     setScheduleType("message");
     setEditingCampaign(campaign);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
     setCampaignTitle(campaign.title ?? '');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
     setTargetAmount(campaign.targetAmount ?? '');
     
-    // Format dates properly for HTML date inputs (YYYY-MM-DD)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const startDateFormatted = campaign.startDate ? new Date(campaign.startDate as string | Date).toISOString().split('T')[0] : '';
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const endDateFormatted = campaign.endDate ? new Date(campaign.endDate as string | Date).toISOString().split('T')[0] : '';
+    // Set media from messages
+    setMedia(extractMediaFromMessages(campaign.messages));
     
-    setStartDate(startDateFormatted ?? '');
-    setEndDate(endDateFormatted ?? '');
+    // Format dates properly for HTML date inputs (YYYY-MM-DD)
+    const startDateFormatted = new Date(campaign.startDate).toISOString().split('T')[0] ?? '';
+    const endDateFormatted = new Date(campaign.endDate).toISOString().split('T')[0] ?? '';
+    
+    setStartDate(startDateFormatted);
+    setEndDate(endDateFormatted);
     
     // Format time from sendTimeUtc - convert from UTC to campaign's timezone
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (campaign.sendTimeUtc && campaign.timeZone) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const utcTime = new Date(campaign.sendTimeUtc as string | Date);
-      
-      // Convert UTC time to the campaign's timezone
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const localTime = new Date(utcTime.toLocaleString("en-US", { timeZone: campaign.timeZone as string }));
-      
-      const hours = localTime.getHours().toString().padStart(2, '0');
-      const minutes = localTime.getMinutes().toString().padStart(2, '0');
-      setMessageTime(`${hours}:${minutes}`);
-    } else {
-      setMessageTime('12:00');
-    }
+    const utcTime = new Date(campaign.sendTimeUtc);
     
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    setTimeZone(campaign.timeZone ?? 'America/Chicago');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    setMessageTemplate(campaign.template ?? '');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    setIsRecurring(campaign.isRecurring ?? false);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    setIsFreeForm(campaign.isFreeForm ?? false);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    setRecurrence(campaign.recurrence ?? undefined);
+    // Convert UTC time to the campaign's timezone
+    const localTime = new Date(utcTime.toLocaleString("en-US", { timeZone: campaign.timeZone }));
+    
+    const hours = localTime.getHours().toString().padStart(2, '0');
+    const minutes = localTime.getMinutes().toString().padStart(2, '0');
+    setMessageTime(`${hours}:${minutes}`);
+    
+    setTimeZone(campaign.timeZone);
+    setMessageTemplate(campaign.template);
+    setIsRecurring(campaign.isRecurring);
+    setIsFreeForm(campaign.isFreeForm);
+    setRecurrence(campaign.recurrence ? campaign.recurrence : undefined);
     
     // Load existing media if any
-    /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
-    const existingMedia = campaign.messages?.flatMap((msg: any) => {
-      const mediaItems = [];
-      if (msg.imageUrl && msg.imagePublicId) {
-        mediaItems.push({ url: msg.imageUrl, publicId: msg.imagePublicId, type: 'image' as const });
+    const existingMedia = campaign.messages?.flatMap((msg) => {
+      const mediaItems: Array<{ url: string; publicId: string; type: 'image' | 'video' }> = [];
+      if (msg.hasImage && msg.imageUrl && msg.imagePublicId) {
+        mediaItems.push({ url: msg.imageUrl, publicId: msg.imagePublicId, type: 'image' });
       }
-      if (msg.videoUrl && msg.videoPublicId) {
-        mediaItems.push({ url: msg.videoUrl, publicId: msg.videoPublicId, type: 'video' as const });
+      if (msg.hasVideo && msg.videoUrl && msg.videoPublicId) {
+        mediaItems.push({ url: msg.videoUrl, publicId: msg.videoPublicId, type: 'video' });
       }
       return mediaItems;
     }) ?? [];
@@ -457,59 +526,35 @@ export default function Home() {
     /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleEditStatus = (status: any) => {
+  const handleEditStatus = (status: Status) => {
     setScheduleType("status");
     setEditingCampaign(status);
+    setCampaignTitle(status.title ?? '');
     
     // Format dates properly for HTML date inputs (YYYY-MM-DD)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const startDateFormatted = status.startDate ? new Date(status.startDate as string | Date).toISOString().split('T')[0] : '';
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const endDateFormatted = status.endDate ? new Date(status.endDate as string | Date).toISOString().split('T')[0] : '';
+    const startDateFormatted = new Date(status.startDate).toISOString().split('T')[0] ?? '';
+    const endDateFormatted = new Date(status.endDate).toISOString().split('T')[0] ?? '';
     
-    setStartDate(startDateFormatted ?? '');
-    setEndDate(endDateFormatted ?? '');
+    setStartDate(startDateFormatted);
+    setEndDate(endDateFormatted);
     
     // Format time from sendTimeUtc - convert from UTC to status's timezone
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (status.sendTimeUtc && status.timeZone) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const utcTime = new Date(status.sendTimeUtc as string | Date);
-      
-      // Convert UTC time to the status's timezone
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const localTime = new Date(utcTime.toLocaleString("en-US", { timeZone: status.timeZone as string }));
-      
-      const hours = localTime.getHours().toString().padStart(2, '0');
-      const minutes = localTime.getMinutes().toString().padStart(2, '0');
-      setMessageTime(`${hours}:${minutes}`);
-    } else {
-      setMessageTime('12:00');
-    }
+    const utcTime = new Date(status.sendTimeUtc);
     
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    setTimeZone(status.timeZone ?? 'America/Chicago');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    setMessageTemplate(status.template ?? '');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    setIsRecurring(status.isRecurring ?? false);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    setRecurrence(status.recurrence ?? undefined);
+    // Convert UTC time to the status's timezone
+    const localTime = new Date(utcTime.toLocaleString("en-US", { timeZone: status.timeZone }));
     
-    // Load existing media if any - status updates might have media
-    /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
-    const existingMedia = status.statuses?.flatMap((msg: any) => {
-      const mediaItems = [];
-      if (msg.imageUrl && msg.imagePublicId) {
-        mediaItems.push({ url: msg.imageUrl, publicId: msg.imagePublicId, type: 'image' as const });
-      }
-      if (msg.videoUrl && msg.videoPublicId) {
-        mediaItems.push({ url: msg.videoUrl, publicId: msg.videoPublicId, type: 'video' as const });
-      }
-      return mediaItems;
-    }) ?? [];
-    setMedia(existingMedia);
+    const hours = localTime.getHours().toString().padStart(2, '0');
+    const minutes = localTime.getMinutes().toString().padStart(2, '0');
+    setMessageTime(`${hours}:${minutes}`);
+    
+    setTimeZone(status.timeZone);
+    setMessageTemplate(status.template);
+    setIsRecurring(status.isRecurring);
+    setRecurrence(status.recurrence ? status.recurrence : undefined);
+    
+    // Set media from status messages
+    setMedia(extractMediaFromMessages(status.statuses));
     /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
     
     // Clear campaign-specific fields since this is a status update
@@ -606,14 +651,17 @@ export default function Home() {
           });
           await updateStatus.mutateAsync({
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+            sessionId: whatsAppSession.id,
             statusCampaignId: editingCampaign.id,
+            title: campaignTitle.trim() || undefined,
             endDate: finalEndDate,
             messageTime,
             timeZone,
             statusText: messageTemplate,
             isRecurring,
+            isFreeForm,
             recurrence: isRecurring ? recurrence : undefined,
-            images: media.length > 0 ? media.map(m => ({url: m.url, publicId: m.publicId})) : undefined,
+            media: media.length > 0 ? media : undefined,
             startDate: startDate,
           });
           setSubmitStatus({
@@ -633,11 +681,12 @@ export default function Home() {
         return;
       }
       // Update existing campaign - still single campaign
+      // If no new media is provided, keep the existing media from the campaign
+      const updatedMedia = media.length > 0 ? media : ('media' in editingCampaign ? editingCampaign.media : undefined);
+
       updateCampaign.mutate({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+        sessionId: whatsAppSession.id,
         campaignId: editingCampaign.id,
-        title: campaignTitle.trim() || undefined,
-        targetAmount: targetAmount.trim() || undefined,
         startDate,
         endDate: finalEndDate,
         messageTime,
@@ -645,9 +694,15 @@ export default function Home() {
         messageTemplate,
         isRecurring,
         isFreeForm,
+        title: campaignTitle.trim() || undefined,
+        targetAmount: targetAmount.trim() || undefined,
         recurrence: isRecurring ? recurrence : undefined,
         audienceType: selectedAudienceType,
-        images: media.length > 0 ? media.map(m => ({url: m.url, publicId: m.publicId})) : undefined,
+        media: updatedMedia as {
+            url: string;
+            type: "image" | "video";
+            publicId: string;
+        }[] | undefined,
       });
     } else {
       if (scheduleType === 'status') {
@@ -1243,7 +1298,7 @@ export default function Home() {
                               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <p className="text-sm text-blue-800">
                                   {/* eslint-disable-next-line @typescript-eslint/no-unsafe-member-access */}
-                                  <strong>Editing campaign for group:</strong> {editingCampaign.group?.groupName}
+                                  <strong>Editing campaign for group:</strong> {'group' in editingCampaign ? editingCampaign.group?.groupName : 'Status Update'}
                                 </p>
                                 <p className="text-xs text-blue-600 mt-1">
                                   Note: You can edit campaigns even after they&apos;ve started sending. Only future unsent messages will be updated.
