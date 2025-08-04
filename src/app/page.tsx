@@ -158,7 +158,7 @@ export default function Home() {
   const [editingCampaign, setEditingCampaign] = useState<CampaignType | Status | null>(null);
   
   // State for image uploads
-  const [media, setMedia] = useState<Array<{ url: string; publicId: string; type: 'image' | 'video'; file?: File }>>([]);
+  const [media, setMedia] = useState<any>([]);
 
   const { data: whatsAppSession, isLoading: isWhatsAppLoading } = api.user.getWhatsAppSession.useQuery(undefined, {
     enabled: !!session?.user && session.user.role !== 'GUEST',
@@ -473,8 +473,6 @@ const extractMediaFromMessages = (messages: Message[]) => {
       }
     }
   }
-
-  console.log(`result: ${result.length}`)
 
   return result;
 };
