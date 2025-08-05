@@ -25,7 +25,7 @@ export default function Home() {
   const [currentSessionName, setCurrentSessionName] = useState<string | null>(null);
   const [selectedAudienceIds, setSelectedAudienceIds] = useState<string[]>([]);
   const [selectedAudienceNames, setSelectedAudienceNames] = useState<string[]>([]);
-  const [selectedAudienceType, setSelectedAudienceType] = useState<'groups' | 'individuals'>('groups');
+  const [selectedAudienceType, setSelectedAudienceType] = useState<'groups' | 'individuals' | 'members'>('groups');
   const [screenshotKey, setScreenshotKey] = useState(0);
 
   // New state variable for message sequences
@@ -830,14 +830,14 @@ const extractMediaFromMessages = (messages: Message[]) => {
     return null;
   }
 
-  const handleAudienceSelect = (audienceIds: string[], audienceNames: string[], audienceType: 'groups' | 'individuals') => {
+  const handleAudienceSelect = (audienceIds: string[], audienceNames: string[], audienceType: 'groups' | 'individuals' | 'members') => {
     setSelectedAudienceIds(audienceIds);
     setSelectedAudienceNames(audienceNames);
     setSelectedAudienceType(audienceType);
     setSubmitStatus(null);
   }
 
-  const handleAudienceTypeChange = (type: 'groups' | 'individuals') => {
+  const handleAudienceTypeChange = (type: 'groups' | 'individuals' | 'members') => {
     setSelectedAudienceType(type);
     // Clear selection when switching audience types
     setSelectedAudienceIds([]);

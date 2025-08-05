@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { type PendingUser } from "~/types/admin";
 import ConfirmationModal from "~/app/_components/ConfirmationModal";
+import ExcelUpload from "~/app/_components/ExcelUpload";
 
 export default function AdminDashboard() {
   const { data: session, isPending: isSessionLoading } = authClient.useSession();
@@ -21,13 +22,15 @@ export default function AdminDashboard() {
     sessions: boolean;
     groups: boolean;
     campaigns: boolean;
+    members: boolean;
   }>({
     sessions: false,
     groups: false,
     campaigns: false,
+    members: false,
   });
 
-  const toggleSection = (section: 'sessions' | 'groups' | 'campaigns') => {
+  const toggleSection = (section: 'sessions' | 'groups' | 'campaigns' | 'members') => {
     setExpandedSections(prev => ({
       ...prev,
       [section]: !prev[section]
@@ -64,6 +67,10 @@ export default function AdminDashboard() {
   });
 
   const { data: campaignStats, isLoading: isCampaignStatsLoading } = api.admin.getCampaignStats.useQuery(undefined, {
+    enabled: !!session?.user && session.user.role === 'ADMIN',
+  });
+
+  const { data: clubMembers, isLoading: isClubMembersLoading } = api.admin.getClubMembers.useQuery(undefined, {
     enabled: !!session?.user && session.user.role === 'ADMIN',
   });
 
@@ -417,6 +424,76 @@ export default function AdminDashboard() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Member Management Section */}
+          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <button
+                className="flex items-center justify-between w-full text-left"
+                onClick={() => toggleSection('members')}
+              >
+                <h3 className="text-xl font-semibold text-gray-800">
+                  Member Management ({clubMembers?.length ?? 0} members)
+                </h3>
+                <span className="text-gray-500">
+                  {expandedSections.members ? (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
+                </span>
+              </button>
+            </div>
+            {expandedSections.members && (
+              <div>
+                <ExcelUpload />
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Memo ID</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {isClubMembersLoading ? (
+                        <tr>
+                          <td colSpan={3} className="px-6 py-4 whitespace-nowrap text-center">
+                            Loading...
+                          </td>
+                        </tr>
+                      ) : clubMembers?.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-4 whitespace-nowrap text-center">
+                            No members found. Upload an Excel file to add members.
+                          </td>
+                        </tr>
+                      ) : (
+                        clubMembers?.map((member) => (
+                          <tr key={member.id}>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {member.firstName} {member.lastName}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {member.phoneNumber}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {member.memoId}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* User Management Sections - updated to be more compact */}

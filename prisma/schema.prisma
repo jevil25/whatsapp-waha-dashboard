@@ -76,6 +76,31 @@ model WhatsAppGroup {
   @@unique([groupId, sessionId])
 }
 
+model ClubMember {
+  id          String   @id @default(cuid()) @map("_id")
+  firstName   String
+  lastName    String
+  phoneNumber String
+  memoId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  campaignMembers CampaignMember[]
+  @@map("club_member")
+}
+
+model CampaignMember {
+  id          String   @id @default(cuid()) @map("_id")
+  memberId    String
+  campaignId  String
+  member      ClubMember      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  campaign    MessageCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  
+  @@unique([memberId, campaignId])
+  @@map("campaign_member")
+}
+
 model MessageCampaign {
   id           String         @id @default(cuid()) @map("_id")
   sessionId    String
@@ -88,6 +113,7 @@ model MessageCampaign {
   timeZone     String         @default("America/Chicago") // Time zone for scheduling
   template     String
   messages     Message[]
+  members      CampaignMember[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   isDeleted    Boolean        @default(false)

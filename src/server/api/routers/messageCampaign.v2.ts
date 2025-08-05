@@ -29,7 +29,8 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       groupName: z.string(),
       targetAmount: z.string().optional(),
       messageTemplate: z.string(),
-      audienceType: z.enum(['groups', 'individuals']).default('groups'),
+      audienceType: z.enum(['groups', 'individuals', 'members']).default('groups'),
+      memberIds: z.array(z.string()).optional(), // Add this for member campaigns
     }))
     .mutation(async ({ ctx, input }) => {
       const {
@@ -168,6 +169,7 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       }
 
       // Create the campaign with messages
+      // Create campaign with appropriate relations
       const campaign = await ctx.db.messageCampaign.create({
         data: {
           groupId: group.id,
@@ -186,6 +188,14 @@ export const messageCampaignRouterV2 = createTRPCRouter({
           messages: {
             create: messages,
           },
+          // Add member relations if this is a member campaign
+          ...(input.audienceType === 'members' && input.memberIds ? {
+            members: {
+              create: input.memberIds.map(memberId => ({
+                memberId
+              }))
+            }
+          } : {}),
         },
       });
 
@@ -345,7 +355,7 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       campaignId: z.string(),
       targetAmount: z.string().optional(),
       messageTemplate: z.string(),
-      audienceType: z.enum(['groups', 'individuals']).default('groups'),
+      audienceType: z.enum(['groups', 'individuals', 'members']).default('groups'),
     }))
     .mutation(async ({ ctx, input }) => {
       const { campaignId, startDate, endDate, messageTime, timeZone, messageTemplate, title, 

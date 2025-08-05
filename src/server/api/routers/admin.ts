@@ -277,4 +277,14 @@ export const adminRouter = createTRPCRouter({
         total: activeCampaigns + completedCampaigns,
       };
     }),
+
+  getClubMembers: adminProcedure
+    .query(async () => {
+      const members = await db.clubMember.findMany({
+        orderBy: {
+          lastName: 'asc',
+        },
+      });
+      return members;
+    }),
 });

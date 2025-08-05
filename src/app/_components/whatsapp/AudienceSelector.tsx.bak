@@ -1,63 +1,95 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from "~/trpc/react";
 
-type AudienceType = 'groups' | 'individuals' | 'members';
-
 interface AudienceSelectorProps {
   sessionName: string;
-  onAudienceSelect: (audienceIds: string[], audienceNames: string[], audienceType: AudienceType) => void;
+  onAudienceSelect: (audienceIds: string[], audienceNames: string[], audienceType: 'groups' | 'individuals' | 'members') => void;
   selectedAudienceIds: string[];
-  selectedAudienceType: AudienceType;
-  onAudienceTypeChange: (type: AudienceType) => void;
+  selectedAudienceType: 'groups' | 'individuals' | 'members';
+  onAudienceTypeChange: (type: 'groups' |                   ) : selectedAudienceType === 'members' ? (
+                    <div className="space-y-2">
+                      {/* All Members Toggle */}
+                      <div className="px-4 py-2 border-b">
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={clubMembers?.length === selectedMembersState.length}
+                            onChange={() => {
+                              if (clubMembers) {
+                                if (clubMembers.length === selectedMembersState.length) {
+                                  setSelectedMembersState([]);
+                                  onAudienceSelect([], [], 'members');
+                                } else {
+                                  const newSelectedMembers = clubMembers.map(member => ({
+                                    id: member.id,
+                                    name: `${member.firstName} ${member.lastName}`,
+                                    number: member.phoneNumber
+                                  }));
+                                  setSelectedMembersState(newSelectedMembers);
+                                  onAudienceSelect(
+                                    newSelectedMembers.map(m => m.id),
+                                    newSelectedMembers.map(m => m.name),
+                                    'members'
+                                  );
+                                }
+                              }
+                            }}
+                            className="form-checkbox h-4 w-4 text-[#d97809] border-gray-300 rounded focus:ring-[#d97809]"
+                          />
+                          <span className="text-sm font-medium text-gray-700">
+                            Select All Members
+                          </span>
+                        </label>
+                      </div>
+
+                      {/* Member List */}
+                      <div className="px-4 space-y-2">
+                        {isLoadingMembers ? (
+                          <div className="py-2 text-center text-gray-500">Loading members...</div>
+                        ) : !clubMembers?.length ? (
+                          <div className="py-2 text-center text-gray-500">No members found</div>
+                        ) : (
+                          clubMembers.map((member) => (
+                            <div key={member.id} className="flex items-center justify-between py-2">
+                              <label className="flex items-center space-x-2 cursor-pointer flex-1">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedMembersState.some(m => m.id === member.id)}
+                                  onChange={() => handleMemberToggle(member)}
+                                  className="form-checkbox h-4 w-4 text-[#d97809] border-gray-300 rounded focus:ring-[#d97809]"
+                                />
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-medium text-gray-700">
+                                    {member.firstName} {member.lastName}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {member.phoneNumber}
+                                  </span>
+                                </div>
+                              </label>
+                              <span className="text-sm text-gray-500">
+                                ${member.amount}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ) : selectedAudienceType === 'groups' ? (individuals' | 'members') => void;
 }
 
-type ClubMember = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  memoId: string;
-  phoneNumber: string;
-};
-
-interface BaseAudience {
-  id: string;
-  name: string;
-}
-
-interface GroupAudience extends BaseAudience {
-  number?: never;
-}
-
-interface ContactAudience extends BaseAudience {
-  number: string;
-}
-
-type AudienceStateType = GroupAudience | ContactAudience;
-
-interface WhatsAppGroup {
-  groupId: string;
-  groupName: string;
-}
-
-interface WhatsAppContact {
-  groupId: string;
-  groupName: string;
-  number: string;
-  isContact: boolean;
-}
-
-export function AudienceSelector({
-  sessionName,
-  onAudienceSelect,
-  selectedAudienceIds,
+export function AudienceSelector({ 
+  sessionName, 
+  onAudienceSelect, 
+  selectedAudienceIds, 
   selectedAudienceType,
-  onAudienceTypeChange
+  onAudienceTypeChange 
 }: AudienceSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedGroupsState, setSelectedGroupsState] = useState<AudienceStateType[]>([]);
-  const [selectedContactsState, setSelectedContactsState] = useState<AudienceStateType[]>([]);
-  const [selectedMembersState, setSelectedMembersState] = useState<AudienceStateType[]>([]);
+  const [selectedGroupsState, setSelectedGroupsState] = useState<{id: string, name: string}[]>([]);
+  const [selectedContactsState, setSelectedContactsState] = useState<{id: string, name: string, number?: string}[]>([]);
+  const [selectedMembersState, setSelectedMembersState] = useState<{id: string, name: string, number: string}[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -67,80 +99,6 @@ export function AudienceSelector({
     staleTime: 0,
     enabled: selectedAudienceType === 'members'
   });
-
-  // Render member selection section
-  const renderMemberSection = () => (
-    <div className="space-y-2">
-      {/* All Members Toggle */}
-      <div className="px-4 py-2 border-b">
-        <label className="flex items-center space-x-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={clubMembers?.length === selectedMembersState.length}
-            onChange={() => {
-              if (clubMembers) {
-                if (clubMembers.length === selectedMembersState.length) {
-                  setSelectedMembersState([]);
-                  onAudienceSelect([], [], 'members');
-                } else {
-                  const newSelectedMembers = clubMembers.map(member => ({
-                    id: member.id,
-                    name: `${member.firstName} ${member.lastName}`,
-                    number: member.phoneNumber
-                  }));
-                  setSelectedMembersState(newSelectedMembers);
-                  onAudienceSelect(
-                    newSelectedMembers.map(m => m.id),
-                    newSelectedMembers.map(m => m.name),
-                    'members'
-                  );
-                }
-              }
-            }}
-            className="form-checkbox h-4 w-4 text-[#d97809] border-gray-300 rounded focus:ring-[#d97809]"
-          />
-          <span className="text-sm font-medium text-gray-700">
-            Select All Members
-          </span>
-        </label>
-      </div>
-
-      {/* Member List */}
-      <div className="px-4 space-y-2">
-        {isLoadingMembers ? (
-          <div className="py-2 text-center text-gray-500">Loading members...</div>
-        ) : !clubMembers?.length ? (
-          <div className="py-2 text-center text-gray-500">No members found</div>
-        ) : clubMembers ? (
-          clubMembers.map((member) => (
-            <div key={member.id} className="flex items-center justify-between py-2">
-              <label className="flex items-center space-x-2 cursor-pointer flex-1">
-                <input
-                  type="checkbox"
-                  checked={selectedMembersState.some(m => m.id === member.id)}
-                  onChange={() => handleMemberToggle(member)}
-                  className="form-checkbox h-4 w-4 text-[#d97809] border-gray-300 rounded focus:ring-[#d97809]"
-                />
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-gray-700">
-                    {member.firstName} {member.lastName}
-                  </span>
-                  <div className="flex flex-col">
-                    <span className="text-xs text-gray-500">
-                      {member.phoneNumber}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      Memo ID: {member.memoId}
-                    </span>
-                  </div>
-                </div>
-              </label>
-            </div>
-          ))
-        ) : null}
-      </div>
-    </div>
-  );
 
   // Groups API
   const { 
@@ -268,11 +226,10 @@ export function AudienceSelector({
     setIsOpen(!isOpen);
   };
 
-  const handleAudienceTypeChange = (type: 'groups' | 'individuals' | 'members') => {
+  const handleAudienceTypeChange = (type: 'groups' | 'individuals') => {
     onAudienceTypeChange(type);
     setSelectedGroupsState([]);
     setSelectedContactsState([]);
-    setSelectedMembersState([]);
     setSearchQuery('');
     setIsOpen(false);
     // Clear parent component selections
@@ -283,13 +240,12 @@ export function AudienceSelector({
     const group = allGroups.find(g => g.groupId === groupId);
     if (!group) return;
     
-    const groupInfo: AudienceStateType = {
+    const groupInfo = {
       id: groupId,
-      name: groupName,
-      number: "" // Groups don't have numbers, but we need to satisfy the type
+      name: groupName
     };
     
-    let newSelectedGroups: AudienceStateType[];
+    let newSelectedGroups: {id: string, name: string}[];
     if (selectedGroupsState.some(g => g.id === groupId)) {
       // Remove from selection
       newSelectedGroups = selectedGroupsState.filter(g => g.id !== groupId);
@@ -310,13 +266,13 @@ export function AudienceSelector({
     const contact = mergedContacts.find(c => c.groupId === contactId);
     if (!contact) return;
     
-    const contactInfo: AudienceStateType = {
+    const contactInfo = {
       id: contactId,
       name: contactName,
-      number: contact.number || "" // Ensure number is always a string
+      number: contact.number
     };
     
-    let newSelectedContacts: AudienceStateType[];
+    let newSelectedContacts: {id: string, name: string, number?: string}[];
     if (selectedContactsState.some(c => c.id === contactId)) {
       // Remove from selection
       newSelectedContacts = selectedContactsState.filter(c => c.id !== contactId);
@@ -336,11 +292,11 @@ export function AudienceSelector({
     );
   };
 
-  const handleMemberToggle = (member: ClubMember) => {
+  const handleMemberToggle = (member: { id: string, firstName: string, lastName: string, phoneNumber: string }) => {
     const memberId = member.id;
     const memberName = `${member.firstName} ${member.lastName}`;
     
-    let newSelectedMembers: AudienceStateType[];
+    let newSelectedMembers: {id: string, name: string, number: string}[];
     if (selectedMembersState.some(m => m.id === memberId)) {
       // Remove from selection
       newSelectedMembers = selectedMembersState.filter(m => m.id !== memberId);
@@ -349,7 +305,7 @@ export function AudienceSelector({
       newSelectedMembers = [...selectedMembersState, {
         id: memberId,
         name: memberName,
-        number: member.phoneNumber || "" // Ensure we always have a string
+        number: member.phoneNumber
       }];
     }
     
@@ -386,11 +342,11 @@ export function AudienceSelector({
     }
   };
 
-  const isLoading: boolean = selectedAudienceType === 'groups' 
-    ? isLoadingGroups ?? false
+  const isLoading = selectedAudienceType === 'groups' 
+    ? isLoadingGroups 
     : selectedAudienceType === 'individuals'
-    ? isLoadingContacts ?? false
-    : isLoadingMembers ?? false;
+    ? isLoadingContacts
+    : isLoadingMembers;
 
   return (
     <div className="space-y-4">
