@@ -363,7 +363,6 @@ export function AudienceSelector({
         >
           <option value="groups">Groups</option>
           <option value="individuals">Individuals</option>
-          <option value="members">Club Members</option>
         </select>
       </div>
 

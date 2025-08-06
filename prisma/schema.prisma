@@ -124,6 +124,7 @@ model MessageCampaign {
   recurrence   Recurrence?
   isRecurring  Boolean        @default(false)
   nextSendAt   DateTime?
+  audienceType String         @default("groups") // Type of audience: groups, individuals, or members
 
   session      WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   group        WhatsAppGroup   @relation(fields: [groupId], references: [id], onDelete: Cascade)

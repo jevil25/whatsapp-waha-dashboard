@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { type WhatsAppSessionStatus } from "~/types/session";
 import { AudienceSelector } from './_components/whatsapp/AudienceSelector';
+import { MemberSelector } from './_components/whatsapp/MemberSelector';
 import { CampaignList, type Status, type Campaign as CampaignType, type Message } from './_components/whatsapp/CampaignList';
 import { CompletedCampaignsModal } from './_components/whatsapp/CompletedCampaignsModal';
 import { MediaUpload } from './_components/whatsapp/MediaUpload';
@@ -47,6 +48,7 @@ export default function Home() {
   const [isFreeForm, setIsFreeForm] = useState(false);
   type RecurrenceType = 'DAILY' | 'WEEKLY' | 'SEMI_MONTHLY' | 'MONTHLY' | 'SEMI_ANNUALLY' | 'ANNUALLY';
   const [recurrence, setRecurrence] = useState<RecurrenceType | undefined>(undefined);
+  const [selectedClubMemberIds, setSelectedClubMemberIds] = useState<string[]>([]);
 
   // Comprehensive time zones for the selector
   const timeZones = [
@@ -315,6 +317,11 @@ export default function Home() {
     }
   }, [sessionStatus]);
 
+  const handleMemberSelectionChange = (selectedIds: readonly string[]) => {
+    setSelectedClubMemberIds([...selectedIds]);
+    setSubmitStatus(null);
+  };
+
   // Function to generate message preview
   const updateMessagePreview = useCallback(() => {
     if (!messageTemplate || !startDate) {
@@ -477,6 +484,17 @@ const extractMediaFromMessages = (messages: Message[]) => {
   return result;
 };
 
+  // Fetch club members
+  const { data: clubMembers } = api.user.getClubMembers.useQuery(undefined, {
+    enabled: !!session?.user && session.user.role !== 'GUEST'
+  });
+
+  useEffect(() => {
+    setSelectedClubMemberIds(
+      clubMembers?.map(member => member.id) || []
+    );
+  }, [clubMembers]);
+
   const handleEditCampaign = (campaign: CampaignType) => {
     setScheduleType("message");
     setEditingCampaign(campaign);
@@ -626,7 +644,6 @@ const extractMediaFromMessages = (messages: Message[]) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!whatsAppSession?.sessionName) return;
-    if (!editingCampaign && scheduleType == "message" && (!selectedAudienceIds.length || !selectedAudienceNames.length)) return;
 
     // Only validate message sequence if the template contains asterisks
     if (messageTemplate.includes('*')) {
@@ -762,6 +779,9 @@ const extractMediaFromMessages = (messages: Message[]) => {
         const createCampaignPromises = selectedAudienceIds.map((audienceId, index) => {
           const audienceName = selectedAudienceNames[index];
           if (!audienceName) return Promise.resolve();
+
+          console.log(`selectedAudienceType:`, selectedAudienceType);
+          console.log(`selectedMemberIds:`, selectedClubMemberIds);
           
           return createCampaign.mutateAsync({
             groupId: audienceId,
@@ -779,6 +799,7 @@ const extractMediaFromMessages = (messages: Message[]) => {
             recurrence: isRecurring ? recurrence : undefined,
             audienceType: selectedAudienceType,
             media: media.length > 0 ? media : undefined,
+            ...(selectedAudienceType === 'groups' ? { selectedMemberIds: selectedClubMemberIds } : {}),
           });
         });
 
@@ -843,7 +864,6 @@ const extractMediaFromMessages = (messages: Message[]) => {
     setSelectedAudienceIds([]);
     setSelectedAudienceNames([]);
   };
-
 
   const isGuestUser = session.user.role === 'GUEST';
 
@@ -1283,7 +1303,32 @@ const extractMediaFromMessages = (messages: Message[]) => {
                                 <p className="text-sm text-blue-700">✅ <strong>Note:</strong> You may select up to 15 individuals per campaign.</p>
                               </div>
                             )}
-                            {!editingCampaign && (
+                            {selectedAudienceType === 'groups' && (
+                              <>
+                                <AudienceSelector
+                                  sessionName={whatsAppSession.sessionName}
+                                  selectedAudienceIds={selectedAudienceIds}
+                                  selectedAudienceType={selectedAudienceType}
+                                  onAudienceSelect={handleAudienceSelect}
+                                  onAudienceTypeChange={handleAudienceTypeChange}
+                                />
+                                {selectedAudienceIds.length > 0 && (
+                                  <div className="mt-4 bg-white rounded-lg p-4 shadow">
+                                    <h3 className="text-lg font-semibold mb-4">Select Group Members</h3>
+                                    {clubMembers ? (
+                                      <MemberSelector
+                                        members={clubMembers}
+                                        campaignId={''}
+                                        onMemberSelectionChange={handleMemberSelectionChange}
+                                      />
+                                    ) : (
+                                      <div className="text-gray-500">Loading group members...</div>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                            {selectedAudienceType !== 'groups' && (
                               <AudienceSelector
                                 sessionName={whatsAppSession.sessionName}
                                 selectedAudienceIds={selectedAudienceIds}

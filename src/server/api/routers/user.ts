@@ -19,6 +19,25 @@ const WAHA_HEADERS = {
 };
 
 export const userRouter = createTRPCRouter({
+  getClubMembers: userProcedure
+    .query(async ({ ctx }) => {
+      // Only allow non-guest users to access club members
+      if (ctx.session?.user.role === 'GUEST') {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Only registered users can access club members',
+        });
+      }
+
+      const members = await ctx.db.clubMember.findMany({
+        orderBy: [
+          { firstName: 'asc' },
+          { lastName: 'asc' }
+        ]
+      });
+
+      return members;
+    }),
   getWhatsAppSession: userProcedure
     .query(async ({ ctx }) => {
       const session = await db.whatsAppSession.findUnique({

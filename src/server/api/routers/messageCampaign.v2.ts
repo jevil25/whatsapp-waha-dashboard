@@ -23,22 +23,21 @@ const campaignInput = {
 // Create the router with updated media support
 export const messageCampaignRouterV2 = createTRPCRouter({
   createCampaign: protectedProcedure
-    .input(z.object({
+      .input(z.object({
       ...campaignInput,
       groupId: z.string(),
       groupName: z.string(),
       targetAmount: z.string().optional(),
       messageTemplate: z.string(),
       audienceType: z.enum(['groups', 'individuals', 'members']).default('groups'),
-      memberIds: z.array(z.string()).optional(), // Add this for member campaigns
+      selectedMemberIds: z.array(z.string()).optional(), // Add this for member campaigns
     }))
     .mutation(async ({ ctx, input }) => {
       const {
         groupId, sessionId, startDate, endDate, messageTime, timeZone, 
-        messageTemplate, title, targetAmount, isRecurring, recurrence, media
-      } = input;
-
-      const recurrenceDaysMap = {
+        messageTemplate, title, targetAmount, isRecurring, recurrence, media,
+        selectedMemberIds, audienceType
+      } = input;      const recurrenceDaysMap = {
         DAILY: 1,
         WEEKLY: 7,
         SEMI_MONTHLY: 15,
@@ -168,8 +167,7 @@ export const messageCampaignRouterV2 = createTRPCRouter({
         });
       }
 
-      // Create the campaign with messages
-      // Create campaign with appropriate relations
+      console.log(`audienceType: ${audienceType}, selectedMemberIds: ${selectedMemberIds}`);
       const campaign = await ctx.db.messageCampaign.create({
         data: {
           groupId: group.id,
@@ -185,18 +183,30 @@ export const messageCampaignRouterV2 = createTRPCRouter({
           isRecurring,
           recurrence,
           isFreeForm: input.isFreeForm,
+          audienceType,
           messages: {
             create: messages,
           },
-          // Add member relations if this is a member campaign
-          ...(input.audienceType === 'members' && input.memberIds ? {
+          ...(audienceType === 'groups' && selectedMemberIds && selectedMemberIds.length > 0 ? {
             members: {
-              create: input.memberIds.map(memberId => ({
-                memberId
+              create: selectedMemberIds.map(id => ({
+                member: {
+                  connect: { id }
+                }
               }))
             }
           } : {}),
         },
+        include: {
+          members: {
+            include: {
+              member: true
+            }
+          },
+          messages: true,
+          session: true,
+          group: true
+        }
       });
 
       return {
