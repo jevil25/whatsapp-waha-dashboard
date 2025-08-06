@@ -14,6 +14,14 @@ export default function AdminDashboard() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
+  const [editingMember, setEditingMember] = useState<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+    memoId: string;
+  } | null>(null);
+  const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [deletingUsers, setDeletingUsers] = useState<Set<string>>(new Set());
@@ -70,8 +78,22 @@ export default function AdminDashboard() {
     enabled: !!session?.user && session.user.role === 'ADMIN',
   });
 
-  const { data: clubMembers, isLoading: isClubMembersLoading } = api.admin.getClubMembers.useQuery(undefined, {
+  const { data: clubMembers, isLoading: isClubMembersLoading, refetch: refetchMembers } = api.admin.getClubMembers.useQuery(undefined, {
     enabled: !!session?.user && session.user.role === 'ADMIN',
+  });
+
+  const { mutate: updateMember } = api.admin.updateClubMember.useMutation({
+    onSuccess: () => {
+      setEditingMember(null);
+      void refetchMembers();
+    },
+  });
+
+  const { mutate: deleteMember } = api.admin.deleteClubMember.useMutation({
+    onSuccess: () => {
+      setDeletingMemberId(null);
+      void refetchMembers();
+    },
   });
 
   const [approvingUsers, setApprovingUsers] = useState<Set<string>>(new Set());
@@ -459,12 +481,13 @@ export default function AdminDashboard() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Memo ID</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {isClubMembersLoading ? (
                         <tr>
-                          <td colSpan={3} className="px-6 py-4 whitespace-nowrap text-center">
+                          <td colSpan={4} className="px-6 py-4 whitespace-nowrap text-center">
                             Loading...
                           </td>
                         </tr>
@@ -478,13 +501,88 @@ export default function AdminDashboard() {
                         clubMembers?.map((member) => (
                           <tr key={member.id}>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              {member.firstName} {member.lastName}
+                              {editingMember?.id === member.id ? (
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={editingMember.firstName}
+                                    onChange={(e) => setEditingMember({ ...editingMember, firstName: e.target.value })}
+                                    className="w-24 px-2 py-1 border rounded"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={editingMember.lastName}
+                                    onChange={(e) => setEditingMember({ ...editingMember, lastName: e.target.value })}
+                                    className="w-24 px-2 py-1 border rounded"
+                                  />
+                                </div>
+                              ) : (
+                                `${member.firstName} ${member.lastName}`
+                              )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              {member.phoneNumber}
+                              {editingMember?.id === member.id ? (
+                                <input
+                                  type="text"
+                                  value={editingMember.phoneNumber}
+                                  onChange={(e) => setEditingMember({ ...editingMember, phoneNumber: e.target.value })}
+                                  className="w-32 px-2 py-1 border rounded"
+                                />
+                              ) : (
+                                member.phoneNumber
+                              )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              {member.memoId}
+                              {editingMember?.id === member.id ? (
+                                <input
+                                  type="text"
+                                  value={editingMember.memoId}
+                                  onChange={(e) => setEditingMember({ ...editingMember, memoId: e.target.value })}
+                                  className="w-24 px-2 py-1 border rounded"
+                                />
+                              ) : (
+                                member.memoId
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                              {editingMember?.id === member.id ? (
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    onClick={() => {
+                                      updateMember(editingMember);
+                                    }}
+                                    className="text-green-600 hover:text-green-900"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingMember(null)}
+                                    className="text-gray-600 hover:text-gray-900"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    onClick={() => setEditingMember(member)}
+                                    className="text-[#d97809] hover:text-[#b85e07]"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (window.confirm('Are you sure you want to delete this member?')) {
+                                        setDeletingMemberId(member.id);
+                                        deleteMember({ id: member.id });
+                                      }
+                                    }}
+                                    className="text-red-600 hover:text-red-900"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         ))

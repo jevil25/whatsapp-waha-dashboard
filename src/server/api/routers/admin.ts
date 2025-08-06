@@ -5,6 +5,37 @@ import { TRPCError } from '@trpc/server';
 import { auth } from '~/server/auth';
 
 export const adminRouter = createTRPCRouter({
+  updateClubMember: adminProcedure
+    .input(z.object({
+      id: z.string(),
+      firstName: z.string(),
+      lastName: z.string(),
+      phoneNumber: z.string(),
+      memoId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const updatedMember = await db.clubMember.update({
+        where: { id: input.id },
+        data: {
+          firstName: input.firstName,
+          lastName: input.lastName,
+          phoneNumber: input.phoneNumber,
+          memoId: input.memoId,
+        },
+      });
+      return updatedMember;
+    }),
+
+  deleteClubMember: adminProcedure
+    .input(z.object({
+      id: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      await db.clubMember.delete({
+        where: { id: input.id },
+      });
+      return { success: true };
+    }),
   getPendingUsers: adminProcedure
     .query(async () => {
       const pendingUsers = await db.user.findMany({
