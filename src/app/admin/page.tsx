@@ -488,19 +488,32 @@ export default function AdminDashboard() {
             </div>
             {expandedSections.members && (
               <div>
-                <div className="flex justify-between items-center mb-4">
-                  <ExcelUpload />
-                  <button
-                    onClick={() => setShowAddMemberForm(true)}
-                    className="px-4 py-2 bg-[#d97809] text-white rounded-md hover:bg-[#b85e07] transition-colors"
-                  >
-                    Add Member
-                  </button>
+                <div className="space-y-3 mb-4">
+                  <div className="flex justify-between items-center">
+                    <div className="space-y-2">
+                      <ExcelUpload />
+                      <div className="text-sm text-gray-600">
+                        <p className="font-medium mb-1">Required Excel columns:</p>
+                        <ul className="list-disc list-inside pl-2 space-y-1">
+                          <li><span className="font-mono text-gray-800">firstName</span> - Member's first name</li>
+                          <li><span className="font-mono text-gray-800">lastName</span> - Member's last name</li>
+                          <li><span className="font-mono text-gray-800">phoneNumber</span> - WhatsApp phone number with country code</li>
+                          <li><span className="font-mono text-gray-800">memoId</span> - Unique memo ID</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowAddMemberForm(true)}
+                      className="px-4 py-2 bg-[#d97809] text-white rounded-md hover:bg-[#b85e07] transition-colors h-fit"
+                    >
+                      Add Member
+                    </button>
+                  </div>
                 </div>
 
                 {showAddMemberForm && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                  <div className="fixed inset-0 bg-black/25 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
                       <h3 className="text-lg font-medium mb-4">Add New Member</h3>
                       <form onSubmit={(e) => {
                         e.preventDefault();
