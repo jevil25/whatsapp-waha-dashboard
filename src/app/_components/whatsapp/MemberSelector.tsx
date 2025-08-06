@@ -31,17 +31,15 @@ export function MemberSelector({
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(() => 
     new Set(existingSelections.length > 0 
       ? existingSelections.map(cm => cm.memberId) 
-      : members.map(m => m.id))
+      : [])
   );
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (existingSelections.length > 0) {
       setSelectedMemberIds(new Set(existingSelections.map(cm => cm.memberId)));
-    } else {
-      setSelectedMemberIds(new Set(members.map(m => m.id)));
     }
-  }, [members, existingSelections]);
+  }, [existingSelections]);
 
   const handleSelectAll = () => {
     const allMemberIds = new Set<string>(members.map(m => m.id));
