@@ -5,6 +5,25 @@ import { TRPCError } from '@trpc/server';
 import { auth } from '~/server/auth';
 
 export const adminRouter = createTRPCRouter({
+  addClubMember: adminProcedure
+    .input(z.object({
+      firstName: z.string(),
+      lastName: z.string(),
+      phoneNumber: z.string(),
+      memoId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const newMember = await db.clubMember.create({
+        data: {
+          firstName: input.firstName,
+          lastName: input.lastName,
+          phoneNumber: input.phoneNumber,
+          memoId: input.memoId,
+        },
+      });
+      return newMember;
+    }),
+
   updateClubMember: adminProcedure
     .input(z.object({
       id: z.string(),
