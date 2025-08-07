@@ -31,13 +31,25 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       messageTemplate: z.string(),
       audienceType: z.enum(['groups', 'individuals', 'members']).default('groups'),
       selectedMemberIds: z.array(z.string()).optional(), // Add this for member campaigns
+      receiptIds: z.array(z.string()).optional(), // Receipt IDs for campaign receivers
+      recieptNames: z.array(z.string()).optional(), // Receipt names for campaign receivers (note: keeping existing typo in schema)
     }))
     .mutation(async ({ ctx, input }) => {
       const {
         groupId, sessionId, startDate, endDate, messageTime, timeZone, 
         messageTemplate, title, targetAmount, isRecurring, recurrence, media,
-        selectedMemberIds, audienceType
-      } = input;      const recurrenceDaysMap = {
+        selectedMemberIds, audienceType, receiptIds, recieptNames
+      } = input;
+
+      // Validate receipt fields when required
+      if (audienceType === 'groups' && selectedMemberIds && selectedMemberIds.length > 0) {
+        if (!receiptIds || receiptIds.length === 0) {
+          throw new Error("Receipt IDs are required when groups are selected with club members");
+        }
+        if (!recieptNames || recieptNames.length === 0) {
+          throw new Error("Receipt Names are required when groups are selected with club members");
+        }
+      }      const recurrenceDaysMap = {
         DAILY: 1,
         WEEKLY: 7,
         SEMI_MONTHLY: 15,
@@ -184,6 +196,8 @@ export const messageCampaignRouterV2 = createTRPCRouter({
           recurrence,
           isFreeForm: input.isFreeForm,
           audienceType,
+          receiptIds: receiptIds || [],
+          recieptNames: recieptNames || [],
           messages: {
             create: messages,
           },
@@ -366,10 +380,12 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       targetAmount: z.string().optional(),
       messageTemplate: z.string(),
       audienceType: z.enum(['groups', 'individuals', 'members']).default('groups'),
+      receiptIds: z.array(z.string()).optional(), // Receipt IDs for campaign receivers
+      recieptNames: z.array(z.string()).optional(), // Receipt names for campaign receivers
     }))
     .mutation(async ({ ctx, input }) => {
       const { campaignId, startDate, endDate, messageTime, timeZone, messageTemplate, title, 
-        targetAmount, isRecurring, recurrence, media } = input;
+        targetAmount, isRecurring, recurrence, media, audienceType, receiptIds, recieptNames } = input;
 
       const recurrenceDaysMap = {
         DAILY: 1,
@@ -531,6 +547,8 @@ export const messageCampaignRouterV2 = createTRPCRouter({
           recurrence,
           isRecurring,
           isFreeForm: input.isFreeForm,
+          receiptIds: receiptIds || [],
+          recieptNames: recieptNames || [],
           messages: {
             create: messages,
           },

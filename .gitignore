@@ -43,3 +43,5 @@ yarn-error.log*
 
 # idea files
 .idea
+
+service_account_key.json

@@ -49,6 +49,12 @@ export default function Home() {
   type RecurrenceType = 'DAILY' | 'WEEKLY' | 'SEMI_MONTHLY' | 'MONTHLY' | 'SEMI_ANNUALLY' | 'ANNUALLY';
   const [recurrence, setRecurrence] = useState<RecurrenceType | undefined>(undefined);
   const [selectedClubMemberIds, setSelectedClubMemberIds] = useState<string[]>([]);
+  
+  // Receipt fields for campaign receivers
+  const [receiptIds, setReceiptIds] = useState<string[]>([]);
+  const [receiptNames, setReceiptNames] = useState<string[]>([]);
+  const [receiptIdInput, setReceiptIdInput] = useState('');
+  const [receiptNameInput, setReceiptNameInput] = useState('');
 
   // Comprehensive time zones for the selector
   const timeZones = [
@@ -156,6 +162,8 @@ export default function Home() {
       videoUrl?: string;
       videoPublicId?: string;
     }>;
+    receiptIds?: string[];
+    recieptNames?: string[];
   };
   const [editingCampaign, setEditingCampaign] = useState<CampaignType | Status | null>(null);
   
@@ -527,6 +535,12 @@ const extractMediaFromMessages = (messages: Message[]) => {
     setIsFreeForm(campaign.isFreeForm);
     setRecurrence(campaign.recurrence ? campaign.recurrence : undefined);
     
+    // Load receipt fields if available
+    if ('receiptIds' in campaign && 'recieptNames' in campaign) {
+      setReceiptIds(Array.isArray(campaign.receiptIds) ? campaign.receiptIds : []);
+      setReceiptNames(Array.isArray(campaign.recieptNames) ? campaign.recieptNames : []);
+    }
+    
     // Load existing media if any
     const existingMedia = campaign.messages?.flatMap((msg) => {
       const mediaItems: Array<{ url: string; publicId: string; type: 'image' | 'video' }> = [];
@@ -595,6 +609,10 @@ const extractMediaFromMessages = (messages: Message[]) => {
     setMedia([]);
     setIsFreeForm(false);
     setRecurrence(undefined);
+    setReceiptIds([]);
+    setReceiptNames([]);
+    setReceiptIdInput('');
+    setReceiptNameInput('');
     setSubmitStatus(null);
   };
 
@@ -649,6 +667,17 @@ const extractMediaFromMessages = (messages: Message[]) => {
     if (messageTemplate.includes('*')) {
       const messages = messageTemplate.split('*').map(msg => msg.trim()).filter(msg => msg.length > 0);
       if (!validateMessageSequence(messages)) return;
+    }
+
+    // Validate receipt fields when groups + members are selected
+    if (selectedAudienceType === 'groups' && selectedClubMemberIds.length > 0) {
+      if (receiptIds.length === 0 || receiptNames.length === 0) {
+        setSubmitStatus({
+          type: 'error',
+          message: 'Receipt IDs and Receipt Names are required when groups are selected with club members. Please add campaign receivers.'
+        });
+        return;
+      }
     }
 
     setSubmitStatus(null);
@@ -713,6 +742,8 @@ const extractMediaFromMessages = (messages: Message[]) => {
         targetAmount: targetAmount.trim() || undefined,
         recurrence: isRecurring ? recurrence : undefined,
         audienceType: selectedAudienceType,
+        receiptIds: receiptIds,
+        recieptNames: receiptNames,
         media: updatedMedia as {
             url: string;
             type: "image" | "video";
@@ -754,6 +785,10 @@ const extractMediaFromMessages = (messages: Message[]) => {
           setSelectedAudienceIds([]);
           setSelectedAudienceNames([]);
           setSelectedAudienceType('groups');
+          setReceiptIds([]);
+          setReceiptNames([]);
+          setReceiptIdInput('');
+          setReceiptNameInput('');
           setMedia([]);
           // Refetch campaigns
           void trpcUtils.messageCampaign.getCampaigns.invalidate();
@@ -799,7 +834,11 @@ const extractMediaFromMessages = (messages: Message[]) => {
             recurrence: isRecurring ? recurrence : undefined,
             audienceType: selectedAudienceType,
             media: media.length > 0 ? media : undefined,
-            ...(selectedAudienceType === 'groups' ? { selectedMemberIds: selectedClubMemberIds } : {}),
+            ...(selectedAudienceType === 'groups' ? { 
+              selectedMemberIds: selectedClubMemberIds,
+              receiptIds: receiptIds,
+              recieptNames: receiptNames
+            } : {}),
           });
         });
 
@@ -822,6 +861,10 @@ const extractMediaFromMessages = (messages: Message[]) => {
         setSelectedAudienceIds([]);
         setSelectedAudienceNames([]);
         setSelectedAudienceType('groups');
+        setReceiptIds([]);
+        setReceiptNames([]);
+        setReceiptIdInput('');
+        setReceiptNameInput('');
           setMedia([]);
           
           // Refetch campaigns
@@ -863,6 +906,21 @@ const extractMediaFromMessages = (messages: Message[]) => {
     // Clear selection when switching audience types
     setSelectedAudienceIds([]);
     setSelectedAudienceNames([]);
+  };
+
+  // Receipt handling functions
+  const addReceiptEntry = () => {
+    if (receiptIdInput.trim() && receiptNameInput.trim()) {
+      setReceiptIds([...receiptIds, receiptIdInput.trim()]);
+      setReceiptNames([...receiptNames, receiptNameInput.trim()]);
+      setReceiptIdInput('');
+      setReceiptNameInput('');
+    }
+  };
+
+  const removeReceiptEntry = (index: number) => {
+    setReceiptIds(receiptIds.filter((_, i) => i !== index));
+    setReceiptNames(receiptNames.filter((_, i) => i !== index));
   };
 
   const isGuestUser = session.user.role === 'GUEST';
@@ -1578,6 +1636,92 @@ const extractMediaFromMessages = (messages: Message[]) => {
                                         placeholder="e.g., $10,000"
                                       />
                                     </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Campaign Receivers Section - Only show when groups + members are selected */}
+                              {selectedAudienceType === 'groups' && selectedClubMemberIds.length > 0 && scheduleType === "message" && (
+                                <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200">
+                                  <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                                    <span className="mr-2">5️⃣</span>
+                                    <span className="mr-2">📝</span>
+                                    Campaign Receivers
+                                    <span className="ml-2 text-red-500 text-sm">*Required</span>
+                                  </h4>
+                                  
+                                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                                    <p className="text-sm text-yellow-800 font-medium">
+                                      📋 Note: Add campaign receivers here when sending to groups with selected club members.
+                                    </p>
+                                  </div>
+
+                                  <div className="space-y-4">
+                                    {/* Receipt Entry Form */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div>
+                                        <label htmlFor="receiptIdInput" className="block text-sm font-medium text-gray-700 mb-2">
+                                          Receipt ID
+                                        </label>
+                                        <input
+                                          type="text"
+                                          id="receiptIdInput"
+                                          value={receiptIdInput}
+                                          onChange={(e) => setReceiptIdInput(e.target.value)}
+                                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                          placeholder="e.g., RCPT001"
+                                        />
+                                      </div>
+                                      
+                                      <div>
+                                        <label htmlFor="receiptNameInput" className="block text-sm font-medium text-gray-700 mb-2">
+                                          Receipt Name
+                                        </label>
+                                        <input
+                                          type="text"
+                                          id="receiptNameInput"
+                                          value={receiptNameInput}
+                                          onChange={(e) => setReceiptNameInput(e.target.value)}
+                                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                          placeholder="e.g., John Doe Receipt"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="flex justify-start">
+                                      <button
+                                        type="button"
+                                        onClick={addReceiptEntry}
+                                        disabled={!receiptIdInput.trim() || !receiptNameInput.trim()}
+                                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                                      >
+                                        ➕ Add Receipt
+                                      </button>
+                                    </div>
+
+                                    {/* Receipt List */}
+                                    {receiptIds.length > 0 && (
+                                      <div>
+                                        <h5 className="text-sm font-medium text-gray-700 mb-2">Added Receipts:</h5>
+                                        <div className="space-y-2">
+                                          {receiptIds.map((id, index) => (
+                                            <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+                                              <div>
+                                                <span className="font-medium text-gray-900">{id}</span>
+                                                <span className="text-gray-500 ml-2">- {receiptNames[index]}</span>
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={() => removeReceiptEntry(index)}
+                                                className="text-red-500 hover:text-red-700 p-1"
+                                              >
+                                                ❌
+                                              </button>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               )}

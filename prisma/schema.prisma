@@ -86,6 +86,7 @@ model ClubMember {
   updatedAt   DateTime @updatedAt
   
   campaignMembers CampaignMember[]
+  paymentReminders PaymentReminder[]
   @@map("club_member")
 }
 
@@ -112,8 +113,11 @@ model MessageCampaign {
   sendTimeUtc  DateTime
   timeZone     String         @default("America/Chicago") // Time zone for scheduling
   template     String
+  receiptIds String[]
+  recieptNames String[]
   messages     Message[]
   members      CampaignMember[]
+  paymentReminders PaymentReminder[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   isDeleted    Boolean        @default(false)
@@ -216,6 +220,27 @@ model Status {
 
   session           WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   StatusCampaign    StatusCampaign @relation(fields: [StatusCampaignId], references: [id], onDelete: Cascade)
+}
+
+enum ReminderType {
+  FIRST_REMINDER
+  FINAL_REMINDER
+}
+
+model PaymentReminder {
+  id           String        @id @default(cuid()) @map("_id")
+  memberId     String
+  campaignId   String
+  reminderType ReminderType
+  sentAt       DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  
+  member       ClubMember      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  campaign     MessageCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  @@unique([memberId, campaignId, reminderType])
+  @@map("payment_reminder")
 }
 
 model Session {
