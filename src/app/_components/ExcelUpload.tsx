@@ -52,8 +52,6 @@ export default function ExcelUpload({ onSuccess }: ExcelUploadProps) {
         body: formData,
       });
 
-      const data = await response.json();
-
       if (response.ok) {
         setMessage('Members imported successfully');
         onSuccess?.();
@@ -62,6 +60,7 @@ export default function ExcelUpload({ onSuccess }: ExcelUploadProps) {
         setMessage(`Error: ${error}`);
       }
     } catch (error) {
+      console.error('Error:', error);
       setMessage('Error uploading file');
     } finally {
       setUploading(false);

@@ -29,6 +29,7 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       groupName: z.string(),
       targetAmount: z.string().optional(),
       messageTemplate: z.string(),
+      sheetId: z.string().optional(),
       audienceType: z.enum(['groups', 'individuals', 'members']).default('groups'),
       selectedMemberIds: z.array(z.string()).optional(), // Add this for member campaigns
       receiptIds: z.array(z.string()).optional(), // Receipt IDs for campaign receivers
@@ -38,18 +39,19 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       const {
         groupId, sessionId, startDate, endDate, messageTime, timeZone, 
         messageTemplate, title, targetAmount, isRecurring, recurrence, media,
-        selectedMemberIds, audienceType, receiptIds, recieptNames
+        selectedMemberIds, audienceType, receiptIds, recieptNames, sheetId
       } = input;
 
       // Validate receipt fields when required
-      if (audienceType === 'groups' && selectedMemberIds && selectedMemberIds.length > 0) {
-        if (!receiptIds || receiptIds.length === 0) {
-          throw new Error("Receipt IDs are required when groups are selected with club members");
-        }
-        if (!recieptNames || recieptNames.length === 0) {
-          throw new Error("Receipt Names are required when groups are selected with club members");
-        }
-      }      const recurrenceDaysMap = {
+      // if (audienceType === 'groups' && selectedMemberIds && selectedMemberIds.length > 0) {
+      //   if (!receiptIds || receiptIds.length === 0) {
+      //     throw new Error("Receipt IDs are required when groups are selected with club members");
+      //   }
+      //   if (!recieptNames || recieptNames.length === 0) {
+      //     throw new Error("Receipt Names are required when groups are selected with club members");
+      //   }
+      // }      
+      const recurrenceDaysMap = {
         DAILY: 1,
         WEEKLY: 7,
         SEMI_MONTHLY: 15,
@@ -198,6 +200,7 @@ export const messageCampaignRouterV2 = createTRPCRouter({
           audienceType,
           receiptIds: receiptIds || [],
           recieptNames: recieptNames || [],
+          sheetId: sheetId || '',
           messages: {
             create: messages,
           },
@@ -205,7 +208,9 @@ export const messageCampaignRouterV2 = createTRPCRouter({
             members: {
               create: selectedMemberIds.map(id => ({
                 member: {
-                  connect: { id }
+                  connect: {
+                    id,
+                  },
                 }
               }))
             }
