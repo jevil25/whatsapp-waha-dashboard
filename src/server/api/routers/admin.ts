@@ -9,16 +9,18 @@ export const adminRouter = createTRPCRouter({
     .input(z.object({
       firstName: z.string(),
       lastName: z.string(),
-      phoneNumber: z.string(),
+      phoneNumber: z.string().optional().nullable(),
       memoId: z.string(),
+      sheetEmail: z.string(),
     }))
     .mutation(async ({ input }) => {
       const newMember = await db.clubMember.create({
         data: {
           firstName: input.firstName,
           lastName: input.lastName,
-          phoneNumber: input.phoneNumber,
+          phoneNumber: input.phoneNumber || null,
           memoId: input.memoId,
+          sheetEmail: input.sheetEmail,
         },
       });
       return newMember;
@@ -29,8 +31,9 @@ export const adminRouter = createTRPCRouter({
       id: z.string(),
       firstName: z.string(),
       lastName: z.string(),
-      phoneNumber: z.string(),
+      phoneNumber: z.string().nullable(),
       memoId: z.string(),
+      sheetEmail: z.string(),
     }))
     .mutation(async ({ input }) => {
       const updatedMember = await db.clubMember.update({
@@ -40,6 +43,7 @@ export const adminRouter = createTRPCRouter({
           lastName: input.lastName,
           phoneNumber: input.phoneNumber,
           memoId: input.memoId,
+          sheetEmail: input.sheetEmail,
         },
       });
       return updatedMember;

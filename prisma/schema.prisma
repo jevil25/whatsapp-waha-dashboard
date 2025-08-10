@@ -80,8 +80,9 @@ model ClubMember {
   id          String   @id @default(cuid()) @map("_id")
   firstName   String
   lastName    String
-  phoneNumber String
+  phoneNumber String?
   memoId      String
+  sheetEmail  String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   

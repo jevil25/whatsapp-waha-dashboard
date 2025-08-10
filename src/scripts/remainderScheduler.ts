@@ -48,7 +48,6 @@ interface SheetConfig {
 async function getSheetService(serviceAccountFile: string) {
   try {
     const keyFilePath = path.join(process.cwd(), serviceAccountFile);
-    logger.info(`Loading service account from: ${keyFilePath}`);
     
     // Verify if file exists and can be read
     try {
@@ -60,8 +59,6 @@ async function getSheetService(serviceAccountFile: string) {
       if (!credentials.client_email || !credentials.private_key) {
         throw new Error('Service account file is missing required fields: client_email or private_key');
       }
-      
-      logger.info(`Service account email: ${credentials.client_email}`);
     } catch (e) {
       logger.error(`Failed to read or parse service account file: ${e}`);
       throw e;
@@ -157,7 +154,7 @@ async function readFromSheet(service: any, config: SheetConfig): Promise<SheetEn
       createdAt: row[7] ?? '',
     }));
 
-    logger.info(`Successfully read ${entries.length} entries from sheet ${config.sheetName} of spreadsheet ${config.spreadsheetId}`);
+    logger.info(`Successfully read ${entries.length} entries from sheet ${config.sheetName}`);
     return entries;
   } catch (error) {
     logger.error(`Failed to read from sheet ${config.sheetName} of spreadsheet ${config.spreadsheetId}: ${error}`);
@@ -190,7 +187,6 @@ async function readFromSheets(): Promise<{ [key: string]: SheetEntry[] }> {
       return acc;
     }, {} as { [key: string]: SheetEntry[] });
 
-    logger.info(`Successfully read data from ${configs.length} sheets`);
     return entriesBySheet;
   } catch (error) {
     logger.error(`Failed to read from Google Sheets: ${error}`);
@@ -256,16 +252,19 @@ function isRecipientInCampaignReceiptNames(cleanedName: string, campaign: any): 
 }
 
 /**
- * Get recently completed campaigns (in the last 1 minute)
+ * Get completed campaigns that need first reminders sent
+ * (campaigns that are completed but don't have any first reminders sent yet)
  */
-async function getRecentlyCompletedCampaigns() {
-  const oneMinuteAgo = new Date(Date.now() - 60 * 1000); // 1 minute ago
-  
-  return await prisma.messageCampaign.findMany({
+async function getCampaignsNeedingFirstReminders() {
+  const one_minute_ago = new Date(Date.now() - 60 * 1000);
+  const now = new Date();
+  // Get all completed campaigns
+  const completedCampaigns = await prisma.messageCampaign.findMany({
     where: {
       status: CampaignStatus.COMPLETED,
       updatedAt: {
-        gte: oneMinuteAgo
+        gte: one_minute_ago,
+        lte: now
       }
     },
     select: {
@@ -307,6 +306,8 @@ async function getRecentlyCompletedCampaigns() {
       }
     }
   });
+  
+  return completedCampaigns
 }
 
 /**
@@ -317,8 +318,10 @@ async function getUnpaidMembers(campaign: any, sheetEntries: SheetEntry[], start
   
   // First, get all payment entries within date range
   const validPaymentEntries = sheetEntries.filter(entry => {
-    const createdAtDate = new Date(entry.createdAt || entry.date);
-    return createdAtDate >= startDate && createdAtDate <= endDate;
+    const createdAtDate = entry.createdAt
+      ? new Date(entry.createdAt + 'Z')
+      : new Date(entry.date + 'Z');
+    return createdAtDate.getTime() >= startDate.getTime() && createdAtDate.getTime() <= endDate.getTime();
   });
   
   // Filter payment entries to only include those with recipient names matching this campaign's receipt names
@@ -329,59 +332,71 @@ async function getUnpaidMembers(campaign: any, sheetEntries: SheetEntry[], start
   
   logger.info(`Found ${campaignRelevantEntries.length} payment entries relevant to campaign "${campaign.title || 'Untitled'}" receipt names`);
   
-  const recipientNamesInSheet = new Set(
-    campaignRelevantEntries.map(entry => cleanRecipientName(entry.recipientName))
-  );
-  
-  logger.info(`Found ${recipientNamesInSheet.size} unique recipient names in payment sheet matching campaign receipt names`);
-  
+  // For each member, check if their memo ID appears in the relevant payment entries
   for (const campaignMember of campaign.members) {
     const member = campaignMember.member;
     
-    // Check if member's name appears in any cleaned recipient names
-    const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim().toLowerCase();
-    const memberNameVariations = [
-      memberName,
-      member.firstName?.toLowerCase() || '',
-      member.lastName?.toLowerCase() || '',
-    ];
+    // Check if member's memo ID appears in any of the campaign relevant entries
+    const memberPaymentEntries = campaignRelevantEntries.filter(entry => 
+      entry.memberId === member.memoId
+    );
     
-    // Check if any variation of member name matches cleaned recipient names
-    const hasPaymentByName = Array.from(recipientNamesInSheet).some(cleanedName => {
-      const cleanedNameLower = cleanedName.toLowerCase();
-      return memberNameVariations.some(variation => 
-        variation && (cleanedNameLower.includes(variation) || variation.includes(cleanedNameLower))
-      );
-    });
-    
-    // If member name found in recipients, get their memo IDs from payment entries
-    if (hasPaymentByName) {
-      const memberPaymentEntries = campaignRelevantEntries.filter(entry => {
-        const cleanedName = cleanRecipientName(entry.recipientName).toLowerCase();
-        return memberNameVariations.some(variation => 
-          variation && (cleanedName.includes(variation) || variation.includes(cleanedName))
-        );
-      });
-      
-      // Check if any of these payment entries have the member's memo ID
-      const hasPaidWithCorrectMemoId = memberPaymentEntries.some(entry => 
-        entry.memberId === member.memoId
-      );
-      
-      if (!hasPaidWithCorrectMemoId) {
-        logger.info(`Member ${memberName} found in recipients but no payment with memo ID ${member.memoId}`);
-        unpaidMembers.push(member);
-      } else {
-        logger.info(`Member ${memberName} has paid with correct memo ID ${member.memoId}`);
-      }
-    } else {
-      // Member name not found in recipients for this campaign
-      logger.info(`Member ${memberName} not found in payment recipients for this campaign`);
+    if (memberPaymentEntries.length === 0) {
+      // Member has not paid for any of the campaign receipt names
+      logger.info(`Member ${member.firstName} ${member.lastName} (${member.memoId}) has not paid for any campaign receipt`);
       unpaidMembers.push(member);
+    } else {
+      // Member has paid for at least one campaign receipt
+      logger.info(`Member ${member.firstName} ${member.lastName} (${member.memoId}) has paid for campaign receipts`);
     }
   }
   
-  return unpaidMembers;
+  return {
+    unpaidMembers,
+    campaignRelevantEntries
+  };
+}
+
+/**
+ * Get unpaid receipt IDs for a specific member
+ */
+function getUnpaidReceiptIds(member: any, campaign: any, campaignRelevantEntries: SheetEntry[]): string[] {
+  if (!campaign.receiptIds || !Array.isArray(campaign.receiptIds)) {
+    return [];
+  }
+  
+  // Get all receipt IDs that the member has paid for
+  const paidReceiptIds = new Set();
+  
+  // Find payment entries for this member
+  const memberPaymentEntries = campaignRelevantEntries.filter(entry => 
+    entry.memberId === member.memoId
+  );
+
+  console.log(memberPaymentEntries)
+  
+  // For each payment entry, find which receipt ID it corresponds to
+  memberPaymentEntries.forEach(entry => {
+    const cleanedRecipientName = cleanRecipientName(entry.recipientName);
+
+    console.log(cleanedRecipientName)
+
+    // Check which campaign receipt name this payment corresponds to
+    if (campaign.receiptNames && Array.isArray(campaign.receiptNames)) {
+      campaign.receiptNames.forEach((receiptName: string, index: number) => {
+        if (receiptName && isRecipientInCampaignReceiptNames(cleanedRecipientName, { receiptNames: [receiptName] })) {
+          // Add the corresponding receipt ID
+          if (campaign.receiptIds[index]) {
+            paidReceiptIds.add(campaign.receiptIds[index]);
+          }
+        }
+      });
+    }
+    console.log(paidReceiptIds)
+  });
+  
+  // Return receipt IDs that are NOT in the paid set
+  return campaign.receiptIds.filter((receiptId: string) => !paidReceiptIds.has(receiptId));
 }
 
 /**
@@ -414,7 +429,6 @@ async function recordReminderSent(memberId: string, campaignId: string, reminder
         sentAt: new Date()
       }
     });
-    logger.info(`Recorded ${reminderType} reminder for member ${memberId} in campaign ${campaignId}`);
   } catch (error) {
     logger.error(`Failed to record reminder: ${error}`);
   }
@@ -496,12 +510,11 @@ async function getMembersNeedingFollowUpReminders(): Promise<any[]> {
 /**
  * Send reminder message to unpaid members
  */
-async function sendReminder(member: any, campaign: any, whatsappSession: any, reminderType: ReminderType = ReminderType.FIRST_REMINDER) {
+async function sendReminder(member: any, campaign: any, whatsappSession: any, reminderType: ReminderType = ReminderType.FIRST_REMINDER, unpaidReceiptIds: string[] = []) {
   try {
     // Check if this reminder has already been sent
     const alreadySent = await hasReminderBeenSent(member.id, campaign.id, reminderType);
     if (alreadySent) {
-      logger.info(`${reminderType} reminder already sent to ${member.firstName} for campaign ${campaign.id}`);
       return;
     }
 
@@ -520,10 +533,12 @@ async function sendReminder(member: any, campaign: any, whatsappSession: any, re
     // Determine grace period based on reminder type
     const gracePeriod = reminderType === ReminderType.FIRST_REMINDER ? '6 hours' : '3 hours';
 
-    // Get receipt IDs for this campaign
-    const receiptIds = campaign.receiptIds && campaign.receiptIds.length > 0 
-      ? campaign.receiptIds.join(', ') 
-      : 'the campaign';
+    // Get receipt IDs - use unpaidReceiptIds if provided, otherwise use all campaign receipt IDs
+    const receiptIds = unpaidReceiptIds.length > 0 
+      ? unpaidReceiptIds.join(', ') 
+      : (campaign.receiptIds && campaign.receiptIds.length > 0 
+          ? campaign.receiptIds.join(', ') 
+          : 'the campaign');
 
     // Create the reminder message using the template
     const message = `*Contribution Reminder Template*
@@ -535,6 +550,8 @@ We kindly wish to remind you that our records indicate you have not yet contribu
 📅 Campaign closed on: ${endDateFormatted} at ${endTimeFormatted}
 🕒 Grace period remaining: ${gracePeriod}
 
+If you have already contributed and are receiving this message in error, please share your proof of payment with the group admins at your earliest convenience.
+
 Please note that, in line with group policy, failure to contribute within this grace period may result in removal from the group.
 
 We appreciate your attention to this matter and your continued support.
@@ -542,8 +559,6 @@ We appreciate your attention to this matter and your continued support.
 Warm regards,
 Compliance Team`;
 
-logger.info(`sending to phone number ${member.phoneNumber} with session ${whatsappSession.sessionName}`);
-    
     // Make API call to WAHA
     const response = await fetch(`${env.WAHA_API_URL}/api/sendText`, {
       method: 'POST',
@@ -557,8 +572,6 @@ logger.info(`sending to phone number ${member.phoneNumber} with session ${whatsa
         session: whatsappSession.sessionName
       })
     });
-
-    logger.info(await response.text());
 
     if (!response.ok) {
       throw new Error(`Failed to send reminder: ${response.statusText}`);
@@ -582,32 +595,31 @@ async function main() {
     const sheetData = await readFromSheets();
     const allEntries = Object.values(sheetData).flat();
     
-    // Get recently completed campaigns for first reminders
-    const completedCampaigns = await getRecentlyCompletedCampaigns();
-    logger.info(`Found ${completedCampaigns.length} recently completed campaigns`);
+    // Get completed campaigns that need first reminders
+    const completedCampaigns = await getCampaignsNeedingFirstReminders();
+    logger.info(`Found ${completedCampaigns.length} campaigns needing first reminders`);
     
     // Process each campaign for first reminders
     for (const campaign of completedCampaigns) {
-      logger.info(`Processing campaign for first reminders: ${campaign.title || 'Untitled'}`);
-      
-      // Log available receipt names for this campaign
+      // Log available receipt names for this campaign - CRITICAL FOR DEBUGGING
       if (campaign.recieptNames && campaign.recieptNames.length > 0) {
-        logger.info(`Campaign has ${campaign.recieptNames.length} receipt names: ${campaign.recieptNames.join(', ')}`);
+        logger.info(`Campaign "${campaign.title || 'Untitled'}" has receipt names: ${campaign.recieptNames.join(', ')}`);
       } else {
-        logger.warning(`Campaign "${campaign.title || 'Untitled'}" has no receipt names configured - payment matching may not work correctly`);
+        logger.warning(`Campaign "${campaign.title || 'Untitled'}" has no receipt names configured`);
       }
       
       // Get campaign date range
       const startDate = campaign.startDate;
       const endDate = campaign.endDate || new Date();
       
-      // Get unpaid members
-      const unpaidMembers = await getUnpaidMembers(campaign, allEntries, startDate, endDate);
+      // Get unpaid members and relevant payment entries
+      const { unpaidMembers, campaignRelevantEntries } = await getUnpaidMembers(campaign, allEntries, startDate, endDate);
       logger.info(`Found ${unpaidMembers.length} unpaid members for campaign ${campaign.title || 'Untitled'}`);
       
       // Send first reminders
       for (const member of unpaidMembers) {
-        await sendReminder(member, campaign, campaign.session, ReminderType.FIRST_REMINDER);
+        const unpaidReceiptIds = getUnpaidReceiptIds(member, campaign, campaignRelevantEntries);
+        await sendReminder(member, campaign, campaign.session, ReminderType.FIRST_REMINDER, unpaidReceiptIds);
       }
     }
     
@@ -622,8 +634,6 @@ async function main() {
       
       if (!isPaid) {
         await sendReminder(member, campaign, campaign.session, ReminderType.FINAL_REMINDER);
-      } else {
-        logger.info(`Member ${member.firstName} has paid since first reminder, skipping follow-up`);
       }
     }
     
@@ -641,7 +651,7 @@ async function checkIfMemberHasPaid(member: any, campaign: any, allEntries: any[
   const endDate = campaign.endDate || new Date();
   const now = new Date();
   
-  // Log available receipt names for debugging
+  // Log available receipt names for debugging - CRITICAL FOR DEBUGGING
   if (campaign.recieptNames && campaign.recieptNames.length > 0) {
     logger.info(`Checking payment for ${member.firstName} against receipt names: ${campaign.recieptNames.join(', ')}`);
   } else {
@@ -660,23 +670,8 @@ async function checkIfMemberHasPaid(member: any, campaign: any, allEntries: any[
     return isRecipientInCampaignReceiptNames(cleanedRecipientName, campaign);
   });
   
-  // Check if member's name appears in payment entries
-  const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim().toLowerCase();
-  const memberNameVariations = [
-    memberName,
-    member.firstName?.toLowerCase() || '',
-    member.lastName?.toLowerCase() || '',
-  ];
-  
-  const memberPaymentEntries = campaignRelevantEntries.filter(entry => {
-    const cleanedName = cleanRecipientName(entry.recipientName).toLowerCase();
-    return memberNameVariations.some(variation => 
-      variation && (cleanedName.includes(variation) || variation.includes(cleanedName))
-    );
-  });
-  
-  // Check if any payment entry has the correct memo ID
-  const hasPaid = memberPaymentEntries.some(entry => entry.memberId === member.memoId);
+  // Check if member's memo ID appears in any of the campaign relevant entries
+  const hasPaid = campaignRelevantEntries.some(entry => entry.memberId === member.memoId);
   
   if (hasPaid) {
     logger.info(`Member ${member.firstName} made payment after campaign ended with memo ID ${member.memoId}`);

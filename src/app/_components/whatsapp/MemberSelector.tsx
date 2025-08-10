@@ -5,8 +5,9 @@ type ClubMember = {
   id: string;
   firstName: string;
   lastName: string;
-  phoneNumber: string;
+  phoneNumber: string | null;
   memoId: string;
+  sheetEmail: string;
 };
 
 type CampaignMember = {
@@ -64,7 +65,7 @@ export function MemberSelector({
   };
 
   const filteredMembers = members.filter(member =>
-    `${member.firstName} ${member.lastName} ${member.phoneNumber} ${member.memoId}`
+    `${member.firstName} ${member.lastName} ${member.sheetEmail} ${member.memoId}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase())
   );
@@ -106,7 +107,7 @@ export function MemberSelector({
                 Name
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Phone Number
+                Sheet Email
               </th>
             </tr>
           </thead>
@@ -125,7 +126,7 @@ export function MemberSelector({
                   {member.firstName} {member.lastName}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {member.phoneNumber}
+                  {member.sheetEmail}
                 </td>
               </tr>
             ))}

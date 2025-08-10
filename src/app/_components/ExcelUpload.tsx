@@ -1,15 +1,47 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-export default function ExcelUpload() {
+interface ExcelUploadProps {
+  onSuccess?: () => void;
+}
+
+export default function ExcelUpload({ onSuccess }: ExcelUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
+  const [googleAccounts, setGoogleAccounts] = useState<string[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<string>('');
+
+  useEffect(() => {
+    const fetchGoogleAccounts = async () => {
+      try {
+        const response = await fetch('/api/google-accounts');
+        const data = await response.json();
+        
+        if (data.success) {
+          setGoogleAccounts(data.accounts);
+          if (data.accounts.length > 0) {
+            setSelectedAccount(data.accounts[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching Google accounts:', error);
+      }
+    };
+
+    fetchGoogleAccounts();
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!selectedAccount) {
+      setMessage('Please select a Google account');
+      return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('googleAccount', selectedAccount);
 
     setUploading(true);
     setMessage('');
@@ -22,10 +54,12 @@ export default function ExcelUpload() {
 
       const data = await response.json();
 
-      if (data.success) {
-        setMessage(`Successfully uploaded ${data.membersCreated} members`);
+      if (response.ok) {
+        setMessage('Members imported successfully');
+        onSuccess?.();
       } else {
-        setMessage(data.error || 'Error uploading file');
+        const error = await response.text();
+        setMessage(`Error: ${error}`);
       }
     } catch (error) {
       setMessage('Error uploading file');
@@ -35,7 +69,27 @@ export default function ExcelUpload() {
   };
 
   return (
-    <div className="mt-4">
+    <div className="mt-4 space-y-4">
+      <div className="space-y-2">
+        <div className="flex items-center gap-4">
+          <select
+            value={selectedAccount}
+            onChange={(e) => setSelectedAccount(e.target.value)}
+            className="block w-64 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            disabled={uploading}
+            aria-describedby="email-description"
+          >
+            {googleAccounts.map((account) => (
+              <option key={account} value={account}>
+                {account}
+              </option>
+            ))}
+          </select>
+        </div>
+        <p id="email-description" className="text-sm text-gray-500">
+          Select the Google account that will be used to lookup payment records from the sheets
+        </p>
+      </div>
       <div className="flex items-center gap-4">
         <label
           htmlFor="excel-upload"
@@ -52,9 +106,9 @@ export default function ExcelUpload() {
           />
         </label>
         {message && (
-          <span className={message.includes('Success') ? 'text-green-600' : 'text-red-600'}>
+          <div className={`whitespace-pre-wrap ${message.includes('successfully') ? 'text-green-600' : 'text-red-600'}`}>
             {message}
-          </span>
+          </div>
         )}
       </div>
     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { authClient } from "~/client/auth";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
@@ -18,17 +18,42 @@ export default function AdminDashboard() {
     id: string;
     firstName: string;
     lastName: string;
-    phoneNumber: string;
+    phoneNumber: string | null;
     memoId: string;
+    sheetEmail: string;
   } | null>(null);
   const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
   const [showAddMemberForm, setShowAddMemberForm] = useState(false);
+  const [googleAccounts, setGoogleAccounts] = useState<string[]>([]);
   const [newMember, setNewMember] = useState({
     firstName: '',
     lastName: '',
     phoneNumber: '',
-    memoId: ''
+    memoId: '',
+    sheetEmail: ''
   });
+
+  // Fetch Google accounts when add member form is shown
+  useEffect(() => {
+    const fetchGoogleAccounts = async () => {
+      if (showAddMemberForm) {
+        try {
+          const response = await fetch('/api/google-accounts');
+          const data = await response.json();
+          
+          if (data.success && data.accounts.length > 0) {
+            setGoogleAccounts(data.accounts);
+            // Set the first account as default
+            setNewMember(prev => ({ ...prev, sheetEmail: data.accounts[0] }));
+          }
+        } catch (error) {
+          console.error('Error fetching Google accounts:', error);
+        }
+      }
+    };
+
+    fetchGoogleAccounts();
+  }, [showAddMemberForm]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [deletingUsers, setDeletingUsers] = useState<Set<string>>(new Set());
@@ -92,7 +117,7 @@ export default function AdminDashboard() {
   const { mutate: addMember } = api.admin.addClubMember.useMutation({
     onSuccess: () => {
       setShowAddMemberForm(false);
-      setNewMember({ firstName: '', lastName: '', phoneNumber: '', memoId: '' });
+      setNewMember({ firstName: '', lastName: '', phoneNumber: '', memoId: '', sheetEmail: '' });
       void refetchMembers();
     },
   });
@@ -491,14 +516,14 @@ export default function AdminDashboard() {
                 <div className="space-y-3 mb-4">
                   <div className="flex justify-between items-center">
                     <div className="space-y-2">
-                      <ExcelUpload />
+                      <ExcelUpload onSuccess={refetchMembers} />
                       <div className="text-sm text-gray-600">
                         <p className="font-medium mb-1">Required Excel columns:</p>
                         <ul className="list-disc list-inside pl-2 space-y-1">
                           <li><span className="font-mono text-gray-800">firstName</span> - Member's first name</li>
                           <li><span className="font-mono text-gray-800">lastName</span> - Member's last name</li>
-                          <li><span className="font-mono text-gray-800">phoneNumber</span> - WhatsApp phone number with country code</li>
                           <li><span className="font-mono text-gray-800">memoId</span> - Unique memo ID</li>
+                          <li><span className="font-mono text-gray-800">phoneNumber</span> - WhatsApp phone number (optional)</li>
                         </ul>
                       </div>
                     </div>
@@ -545,14 +570,14 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Phone Number
+                            Phone Number (Optional)
                           </label>
                           <input
                             type="tel"
-                            required
                             value={newMember.phoneNumber}
                             onChange={(e) => setNewMember({ ...newMember, phoneNumber: e.target.value })}
                             className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#d97809]"
+                            placeholder="Enter phone number (optional)"
                           />
                         </div>
                         <div>
@@ -566,6 +591,23 @@ export default function AdminDashboard() {
                             onChange={(e) => setNewMember({ ...newMember, memoId: e.target.value })}
                             className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#d97809]"
                           />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Sheet Email
+                          </label>
+                          <select
+                            required
+                            value={newMember.sheetEmail}
+                            onChange={(e) => setNewMember({ ...newMember, sheetEmail: e.target.value })}
+                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d97809] focus:border-[#d97809]"
+                          >
+                            {googleAccounts.map((email) => (
+                              <option key={email} value={email}>
+                                {email}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                         <div className="flex justify-end gap-2 mt-4">
                           <button
@@ -592,7 +634,7 @@ export default function AdminDashboard() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sheet Email</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Memo ID</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
@@ -635,14 +677,19 @@ export default function AdminDashboard() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               {editingMember?.id === member.id ? (
-                                <input
-                                  type="text"
-                                  value={editingMember.phoneNumber}
-                                  onChange={(e) => setEditingMember({ ...editingMember, phoneNumber: e.target.value })}
-                                  className="w-32 px-2 py-1 border rounded"
-                                />
+                                <select
+                                  value={editingMember.sheetEmail}
+                                  onChange={(e) => setEditingMember({ ...editingMember, sheetEmail: e.target.value })}
+                                  className="w-64 px-2 py-1 bg-white border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-[#d97809] focus:border-[#d97809]"
+                                >
+                                  {googleAccounts.map((email) => (
+                                    <option key={email} value={email}>
+                                      {email}
+                                    </option>
+                                  ))}
+                                </select>
                               ) : (
-                                member.phoneNumber
+                                member.sheetEmail
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -678,7 +725,29 @@ export default function AdminDashboard() {
                               ) : (
                                 <div className="flex justify-end gap-2">
                                   <button
-                                    onClick={() => setEditingMember(member)}
+                                    onClick={async () => {
+                                      // Fetch Google accounts if not already loaded
+                                      if (googleAccounts.length === 0) {
+                                        try {
+                                          const response = await fetch('/api/google-accounts');
+                                          const data = await response.json();
+                                          if (data.success) {
+                                            setGoogleAccounts(data.accounts);
+                                          }
+                                        } catch (error) {
+                                          console.error('Error fetching Google accounts:', error);
+                                        }
+                                      }
+                                      
+                                      setEditingMember({
+                                        id: member.id,
+                                        firstName: member.firstName,
+                                        lastName: member.lastName,
+                                        phoneNumber: member.phoneNumber || '',
+                                        memoId: member.memoId,
+                                        sheetEmail: member.sheetEmail
+                                      });
+                                    }}
                                     className="text-[#d97809] hover:text-[#b85e07]"
                                   >
                                     Edit
