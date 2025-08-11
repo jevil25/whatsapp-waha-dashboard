@@ -193,6 +193,7 @@ export const messageCampaignRouter = createTRPCRouter({
         data: {
           groupId: group.id,
           sessionId,
+          sheetId: "",
           title,
           targetAmount,
           startDate: startDt.toJSDate(),
