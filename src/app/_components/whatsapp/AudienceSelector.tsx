@@ -86,7 +86,7 @@ export function AudienceSelector({
                   const newSelectedMembers = clubMembers.map(member => ({
                     id: member.id,
                     name: `${member.firstName} ${member.lastName}`,
-                    number: member.phoneNumber
+                    number: member.phoneNumber ?? ""
                   }));
                   setSelectedMembersState(newSelectedMembers);
                   onAudienceSelect(
@@ -118,7 +118,7 @@ export function AudienceSelector({
                 <input
                   type="checkbox"
                   checked={selectedMembersState.some(m => m.id === member.id)}
-                  onChange={() => handleMemberToggle(member)}
+                  onChange={() => handleMemberToggle({ ...member, phoneNumber: member.phoneNumber ?? "" })}
                   className="form-checkbox h-4 w-4 text-[#d97809] border-gray-300 rounded focus:ring-[#d97809]"
                 />
                 <div className="flex flex-col">
