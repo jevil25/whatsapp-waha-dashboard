@@ -130,7 +130,7 @@ model MessageCampaign {
   isRecurring  Boolean        @default(false)
   nextSendAt   DateTime?
   audienceType String         @default("groups") // Type of audience: groups, individuals, or members
-  sheetId     String
+  sheetId     String?
 
   session      WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   group        WhatsAppGroup   @relation(fields: [groupId], references: [id], onDelete: Cascade)
