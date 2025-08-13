@@ -81,9 +81,9 @@ export const messageCampaignRouterV2 = createTRPCRouter({
 
       // Ensure start date is in the future
       const now = DateTime.now().setZone(timeZone);
-      if (startDt < now) {
-        throw new Error('Start date must be in the future');
-      }
+      // if (startDt < now) {
+      //   throw new Error('Start date must be in the future');
+      // }
 
       // Ensure end date is after start date
       if (endDt < startDt) {
@@ -273,9 +273,9 @@ export const messageCampaignRouterV2 = createTRPCRouter({
 
       // Ensure start date is in the future
       const now = DateTime.now().setZone(timeZone);
-      if (startDt < now) {
-        throw new Error('Start date must be in the future');
-      }
+      // if (startDt < now) {
+      //   throw new Error('Start date must be in the future');
+      // }
 
       // Ensure end date is after start date
       if (endDt < startDt) {
