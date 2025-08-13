@@ -1507,7 +1507,6 @@ const extractMediaFromMessages = (messages: Message[]) => {
                                           }
                                         }}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        min={new Date().toISOString().split('T')[0]}
                                         required
                                       />
                                     </div>
@@ -1523,7 +1522,6 @@ const extractMediaFromMessages = (messages: Message[]) => {
                                           value={endDate}
                                           onChange={(e) => setEndDate(e.target.value)}
                                           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                          min={startDate || new Date().toISOString().split('T')[0]}
                                           required
                                         />
                                       </div>
