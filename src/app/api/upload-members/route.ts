@@ -46,8 +46,8 @@ export async function POST(req: NextRequest) {
       if (!row['Last Name']) {
         validationErrors.push(`Row ${rowNumber}: Last Name is required`);
       }
-      if (!row['Memo ID']) {
-        validationErrors.push(`Row ${rowNumber}: Memo ID is required`);
+      if (!row['Member ID']) {
+        validationErrors.push(`Row ${rowNumber}: Member ID is required`);
       }
       
       rowNumber++;
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
         firstName: row['First Name'] || '',
         lastName: row['Last Name'] || '',
         phoneNumber: row['Phone Number']?.toString() || null, // Make phone number optional
-        memoId: row['Memo ID']?.toString() || '',
+        memoId: row['Member ID']?.toString() || '',
         sheetEmail: googleAccount,
       };
     });

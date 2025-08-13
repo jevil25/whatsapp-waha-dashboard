@@ -520,10 +520,10 @@ export default function AdminDashboard() {
                       <div className="text-sm text-gray-600">
                         <p className="font-medium mb-1">Required Excel columns:</p>
                         <ul className="list-disc list-inside pl-2 space-y-1">
-                          <li><span className="font-mono text-gray-800">firstName</span> - Member's first name</li>
-                          <li><span className="font-mono text-gray-800">lastName</span> - Member's last name</li>
-                          <li><span className="font-mono text-gray-800">memoId</span> - Unique memo ID</li>
-                          <li><span className="font-mono text-gray-800">phoneNumber</span> - WhatsApp phone number (optional)</li>
+                          <li><span className="font-mono text-gray-800">First Name</span> - Member's first name</li>
+                          <li><span className="font-mono text-gray-800">Last Name</span> - Member's last name</li>
+                          <li><span className="font-mono text-gray-800">Member ID</span> - Unique member ID</li>
+                          <li><span className="font-mono text-gray-800">Phone Number</span> - WhatsApp phone number (optional)</li>
                         </ul>
                       </div>
                     </div>
@@ -582,7 +582,7 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Memo ID
+                            Member ID
                           </label>
                           <input
                             type="text"
