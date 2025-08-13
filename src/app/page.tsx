@@ -276,8 +276,6 @@ export default function Home() {
       // Prefetch the first page of groups immediately
       void trpcUtils.user.getWhatsAppGroups.prefetchInfinite({
         sessionName: whatsAppSession.sessionName,
-        limit: 20,
-        search: '',
       });
       
       // Immediately invalidate and refetch groups with highest priority

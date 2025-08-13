@@ -142,24 +142,17 @@ export function AudienceSelector({
     </div>
   );
 
-  // Groups API
+  // Groups API - Fetch all groups at once since server returns all groups
   const { 
     data: groupsData, 
-    fetchNextPage: fetchNextGroupsPage, 
-    hasNextPage: hasNextGroupsPage, 
-    isFetchingNextPage: isFetchingNextGroupsPage, 
-    isLoading: isLoadingGroups, 
-    refetch: refetchGroups 
-  } = api.user.getWhatsAppGroups.useInfiniteQuery({
-    sessionName,
-    limit: 10,
-    search: searchQuery,
+    isLoading: isLoadingGroups
+  } = api.user.getWhatsAppGroups.useQuery({
+    sessionName
   }, {
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
     staleTime: 0,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    enabled: false, // Don't fetch automatically - only when user searches
+    refetchOnMount: true,
+    enabled: selectedAudienceType === 'groups',
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     networkMode: 'always',
@@ -194,7 +187,12 @@ export function AudienceSelector({
     }
   });
 
-  const allGroups = groupsData?.pages.flatMap(page => page.items) ?? [];
+  const allGroups = groupsData?.items ?? [];
+  const filteredGroups = searchQuery.trim()
+    ? allGroups.filter(group =>
+        group?.groupName?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ?? false
+      )
+    : allGroups;
   const allContacts = contactsData?.pages.flatMap(page => page.items) ?? [];
   
   // Merge current search results with previously selected contacts
@@ -241,25 +239,23 @@ export function AudienceSelector({
     };
   }, [isOpen]);
 
-  const handleScroll = () => {
-    if (!listRef.current) return;
+  // const handleScroll = () => {
+  //   if (!listRef.current) return;
     
-    const { scrollTop, scrollHeight, clientHeight } = listRef.current;
-    if (scrollHeight - scrollTop <= clientHeight * 1.2) {
-      if (selectedAudienceType === 'groups' && hasNextGroupsPage && !isFetchingNextGroupsPage) {
-        void fetchNextGroupsPage();
-      } else if (selectedAudienceType === 'individuals' && hasNextContactsPage && !isFetchingNextContactsPage) {
-        void fetchNextContactsPage();
-      }
-    }
-  };
+  //   const { scrollTop, scrollHeight, clientHeight } = listRef.current;
+  //   if (scrollHeight - scrollTop <= clientHeight * 1.2) {
+  //     if (selectedAudienceType === 'groups' && hasNextGroupsPage && !isFetchingNextGroupsPage) {
+  //       void fetchNextGroupsPage();
+  //     } else if (selectedAudienceType === 'individuals' && hasNextContactsPage && !isFetchingNextContactsPage) {
+  //       void fetchNextContactsPage();
+  //     }
+  //   }
+  // };
 
   const handleSearch = () => {
     if (isLoading) return; // Prevent multiple searches while loading
     
-    if (selectedAudienceType === 'groups') {
-      void refetchGroups();
-    } else {
+    if (selectedAudienceType === 'individuals') {
       void refetchContacts();
     }
   };
@@ -468,11 +464,11 @@ export function AudienceSelector({
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !isLoading && searchQuery.trim()) {
+                        if (e.key === 'Enter' && !isLoading && searchQuery.trim() && selectedAudienceType === 'individuals') {
                           handleSearch();
                         }
                       }}
-                      placeholder={selectedAudienceType === 'groups' ? "Search groups..." : "Search contacts..."}
+                      placeholder={selectedAudienceType === 'groups' ? "Search groupss..." : "Search contacts..."}
                       className="w-full pl-10 pr-3 py-2 text-sm border-2 border-[#d97809] rounded-md focus:outline-none focus:ring-2 focus:ring-[#d97809] focus:border-[#d97809] bg-white"
                     />
                     <svg 
@@ -512,7 +508,7 @@ export function AudienceSelector({
 
                 <div 
                   ref={listRef}
-                  onScroll={handleScroll}
+                  // onScroll={handleScroll}
                   className="max-h-[300px] overflow-y-auto overscroll-contain scroll-smooth"
                 >
                 {isLoading ? (
@@ -541,13 +537,13 @@ export function AudienceSelector({
                         Enter a search term and click search to find your WhatsApp groups
                       </p>
                     </div>
-                  ) : allGroups.length === 0 ? (
+                  ) : filteredGroups.length === 0 ? (
                     <div className="py-3 px-4 text-sm text-gray-500 text-center">
                       No groups found matching your search
                     </div>
                   ) : (
                     <>
-                      {allGroups.map((group, index) => (
+                      {filteredGroups.map((group, index) => (
                         <div
                           key={`group-${index}`}
                           onClick={() => handleGroupSelect(group.groupId, group.groupName)}
@@ -572,14 +568,14 @@ export function AudienceSelector({
                           )}
                         </div>
                       ))}
-                      {isFetchingNextGroupsPage && (
+                      {/* {isFetchingNextGroupsPage && (
                         <div className="flex items-center justify-center py-3">
                           <div className="flex items-center space-x-2">
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#d97809]" />
                             <span className="text-sm text-gray-500">Loading more groups...</span>
                           </div>
                         </div>
-                      )}
+                      )} */}
                       {selectedAudienceType === 'groups' && selectedGroupsState.length > 0 && (
                         <div className="p-4 border-t border-gray-200">
                           <div className="flex justify-between items-center mb-2">

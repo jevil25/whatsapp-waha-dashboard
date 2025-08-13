@@ -346,7 +346,7 @@ export const userRouter = createTRPCRouter({
       try {
         // If no search, fetch once and return paginated result
         if (!input.search) {
-          const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/groups?limit=10&offset=${input.cursor ?? 0}`, {
+          const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/groups?exclude=participants`, {
             method: 'GET',
             headers: {
               ...WAHA_HEADERS,
