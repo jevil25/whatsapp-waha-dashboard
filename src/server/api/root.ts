@@ -5,6 +5,7 @@ import { messageCampaignRouter } from "./routers/messageCampaign";
 import { messageCampaignRouterV2 } from "./routers/messageCampaign.v2";
 import { notificationRouter } from "./routers/notification";
 import { sheetsRouter } from "./routers/sheets";
+import { userActivityRouter } from "./routers/userActivity";
 
 /**
  * This is the primary router for your server.
@@ -18,6 +19,7 @@ export const appRouter = createTRPCRouter({
   messageCampaignV2: messageCampaignRouterV2,
   notification: notificationRouter,
   sheets: sheetsRouter,
+  userActivity: userActivityRouter,
 });
 
 // export type definition of API

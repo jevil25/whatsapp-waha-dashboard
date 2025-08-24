@@ -519,3 +519,22 @@ export async function notifyAdminOfNewRegistration(userName: string, userEmail: 
 
   return results;
 }
+
+export async function sendUserSummaryEmail(email: string, html: string, text: string) {
+  console.log(`sending to ${email}`)
+  const emailData = {
+    from: env.FROM_EMAIL,
+    to: email,
+    subject: "Your Activity Summary - TrueSenger",
+    html,
+    text,
+  };
+  try {
+    const response = await mg.messages.create(env.MAILGUN_DOMAIN, emailData);
+    console.log("User summary email sent successfully:", response);
+    return { success: true, messageId: response.id };
+  } catch (error) {
+    console.error("Failed to send user summary email:", error);
+    throw new Error("Failed to send user summary email");
+  }
+}

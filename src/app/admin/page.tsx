@@ -7,6 +7,7 @@ import { api } from "~/trpc/react";
 import { type PendingUser } from "~/types/admin";
 import ConfirmationModal from "~/app/_components/ConfirmationModal";
 import ExcelUpload from "~/app/_components/ExcelUpload";
+import { UserActivityReport } from "~/app/_components/admin/UserActivityReport";
 
 export default function AdminDashboard() {
   const { data: session, isPending: isSessionLoading } = authClient.useSession();
@@ -774,6 +775,11 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* User Activity Report Section */}
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <UserActivityReport />
           </div>
 
           {/* User Management Sections - updated to be more compact */}
