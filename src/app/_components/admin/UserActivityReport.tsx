@@ -184,18 +184,10 @@ export function UserActivityReport() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total Groups
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total Messages
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Active Groups w/ Scheduled Messages</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Messages (incl. Status Updates)</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -205,7 +197,7 @@ export function UserActivityReport() {
                     <div className="text-sm font-medium text-gray-900">{user.userName}</div>
                     <div className="text-sm text-gray-500">{user.email}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.totalGroups}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.activeGroupsWithScheduledMessages}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.totalMessages}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex gap-4">
@@ -255,6 +247,13 @@ export function UserActivityReport() {
             </button>
             <h3 className="text-xl font-bold mb-2">Monthly Breakdown for {modalUser.userName}</h3>
             <div className="mb-4 text-sm text-gray-600">{modalUser.email}</div>
+            <div className="mb-2 text-sm text-gray-700">
+              <strong>Active Groups w/ Scheduled Messages:</strong> {modalUser.activeGroupsWithScheduledMessages}
+              <span className="text-gray-400 ml-1" title="Counts unique groups with at least one scheduled message during the period.">?</span>
+            </div>
+            <div className="mb-2 text-sm text-gray-700">
+              <strong>Total Messages (incl. Status Updates):</strong> {modalUser.totalMessages}
+            </div>
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {modalUser.monthlyBreakdown.filter(m => isMonthInRange(m.month, m.year)).length === 0 ? (
                 <div className="text-gray-500">No details available for selected range.</div>

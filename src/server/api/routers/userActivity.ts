@@ -92,8 +92,8 @@ export const userActivityRouter = createTRPCRouter({
           <p>Hi <strong>${user.name}</strong>,</p>
           <p>Here is your activity summary for <strong>${rangeText}</strong>:</p>
           <ul style="background:#fff; padding:16px; border-radius:8px;">
-            <li><strong>Total Groups Connected:</strong> ${userSummary?.totalGroups ?? 'N/A'}</li>
-            <li><strong>Total Messages Scheduled:</strong> ${userSummary?.totalMessages ?? 'N/A'}</li>
+            <li><strong>Active Groups with Scheduled Messages:</strong> ${userSummary?.activeGroupsWithScheduledMessages ?? 'N/A'} <span style="color:#888; font-size:12px;">(unique groups with at least one scheduled message)</span></li>
+            <li><strong>Total Messages (incl. Status Updates):</strong> ${userSummary?.totalMessages ?? 'N/A'}</li>
           </ul>
           <h3 style="margin-top:24px;">Monthly Breakdown</h3>
           <table style="width:100%; border-collapse:collapse; background:#fff; border-radius:8px;">
@@ -118,6 +118,10 @@ export const userActivityRouter = createTRPCRouter({
         </div>
       `;
       const text = `TrueSenger - Activity Summary\n\nHi ${user.name},\n\nHere is your activity summary for ${rangeText}:\n\nTotal Groups Connected: ${userSummary?.totalGroups ?? 'N/A'}\nTotal Messages Scheduled: ${userSummary?.totalMessages ?? 'N/A'}\n\nMonthly Breakdown:\n${userSummary?.monthlyBreakdown?.map((m:any) => `${monthNames[m.month-1]} ${m.year}: ${m.groupsConnected} groups, ${m.messagesScheduled} messages`).join('\n')}
+\nActive Groups with Scheduled Messages: ${userSummary?.activeGroupsWithScheduledMessages ?? 'N/A'} (unique groups with at least one scheduled message)
+Total Messages (incl. Status Updates): ${userSummary?.totalMessages ?? 'N/A'}
+\nMonthly Breakdown:
+${userSummary?.monthlyBreakdown?.map((m:any) => `${monthNames[m.month-1]} ${m.year}: ${m.groupsConnected} groups, ${m.messagesScheduled} messages`).join('\n')}
 \nThank you for using TrueSenger!`;
 
       // Send email using Mailgun
@@ -182,14 +186,21 @@ async function getUserActivitySummary(ctx: any, userId: string, startMonth?: num
     },
   });
 
-  // Calculate totals for the selected period
-  const uniqueGroups = new Set(campaigns.map((c: { groupId: string }) => c.groupId));
+  // Active Groups with Scheduled Messages: unique groups with at least one scheduled message
+  const activeGroupsWithScheduledMessages = new Set(
+    campaigns
+      .filter((c: { groupId: string; status: string }) => !!c.groupId && c.status !== 'CANCELLED')
+      .map((c: { groupId: string }) => c.groupId)
+  );
+
+  // Total Messages: include SCHEDULED, COMPLETED, and STATUS_UPDATE
+  const totalMessages = campaigns.filter((c: { status: string }) => c.status === 'SCHEDULED' || c.status === 'COMPLETED' || c.status === 'STATUS_UPDATE').length;
 
   // Calculate monthly breakdown
   const monthlyGroupsMap = new Map<string, Set<string>>();
   const monthlyMessagesMap = new Map<string, number>();
 
-  campaigns.forEach((campaign: { createdAt: Date; groupId: string }) => {
+  campaigns.forEach((campaign: { createdAt: Date; groupId: string; status: string }) => {
     const campaignMonth = campaign.createdAt.getMonth() + 1;
     const campaignYear = campaign.createdAt.getFullYear();
     const key = `${campaignYear}-${campaignMonth}`;
@@ -197,7 +208,9 @@ async function getUserActivitySummary(ctx: any, userId: string, startMonth?: num
       monthlyGroupsMap.set(key, new Set());
     }
     monthlyGroupsMap.get(key)!.add(campaign.groupId);
-    monthlyMessagesMap.set(key, (monthlyMessagesMap.get(key) || 0) + 1);
+    if (campaign.status === 'SCHEDULED' || campaign.status === 'COMPLETED' || campaign.status === 'STATUS_UPDATE') {
+      monthlyMessagesMap.set(key, (monthlyMessagesMap.get(key) || 0) + 1);
+    }
   });
 
   const monthlyBreakdown: MonthlyBreakdown[] = Array.from(monthlyMessagesMap.entries())
@@ -220,8 +233,9 @@ async function getUserActivitySummary(ctx: any, userId: string, startMonth?: num
     userId: user.id,
     userName: user.name,
     email: user.email,
-    totalGroups: uniqueGroups.size,
-    totalMessages: campaigns.length,
+    totalGroups: activeGroupsWithScheduledMessages.size, // for legacy, but update frontend label
+    activeGroupsWithScheduledMessages: activeGroupsWithScheduledMessages.size,
+    totalMessages,
     monthlyBreakdown,
   };
 }

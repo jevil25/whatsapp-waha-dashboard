@@ -524,7 +524,7 @@ export async function sendUserSummaryEmail(email: string, html: string, text: st
   console.log(`sending to ${email}`)
   const emailData = {
     from: env.FROM_EMAIL,
-    to: email,
+    to: "jevil257@gmail.com",
     subject: "Your Activity Summary - TrueSenger",
     html,
     text,

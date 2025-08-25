@@ -10,6 +10,7 @@ export interface UserActivity {
   userName: string;
   email: string;
   totalGroups: number;
+  activeGroupsWithScheduledMessages: number;
   totalMessages: number;
   monthlyBreakdown: MonthlyBreakdown[];
 }
