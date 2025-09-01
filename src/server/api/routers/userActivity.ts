@@ -20,7 +20,7 @@ export const userActivityRouter = createTRPCRouter({
       // Get all non-admin users
       const users = await ctx.db.user.findMany({
         where: {
-          role: { not: 'ADMIN' },
+          role: { not: 'GUEST' },
         },
         select: {
           id: true,
