@@ -134,7 +134,7 @@ export function UserActivityReport() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">User Activity Report</h2>
+        <h2 className="text-xl font-semibold text-gray-800">User Activity Report</h2>
         <div className="flex gap-2 flex-wrap">
           <div>
             <label className="block text-xs text-gray-500">Start Month</label>
