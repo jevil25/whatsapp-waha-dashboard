@@ -345,7 +345,7 @@ export default function Home() {
 
     const endDateObj = new Date(finalEndDate);
     const today = new Date();
-    const daysLeft = Math.ceil((endDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const daysLeft = Math.ceil((endDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))+1;
     
     // Build message preview with optional fields
     let preview = '';
