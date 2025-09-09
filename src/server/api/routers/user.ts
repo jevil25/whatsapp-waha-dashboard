@@ -362,10 +362,10 @@ export const userRouter = createTRPCRouter({
             });
           }
 
-          const groups = await response.json() as { id: { _serialized: string }, name: string }[];
+          const groups = await response.json() as { JID: string, Name: string }[];
           const items = groups.map(group => ({
-            groupId: group.id._serialized,
-            groupName: group.name
+            groupId: group.JID,
+            groupName: group.Name
           }));
 
           const nextCursor = items.length === input.limit ? (input.cursor ?? 0) + input.limit : undefined;
@@ -400,7 +400,7 @@ export const userRouter = createTRPCRouter({
             });
           }
 
-          const groups = await response.json() as { id: { _serialized: string }, name: string }[];
+          const groups = await response.json() as { JID: string, Name: string }[];
           if (groups.length === 0) {
             done = true;
             break;
@@ -408,8 +408,8 @@ export const userRouter = createTRPCRouter({
 
           const filtered = groups
             .map(group => ({
-              groupId: group.id._serialized,
-              groupName: group.name
+              groupId: group.JID,
+              groupName: group.Name
             }))
             .filter(group => group.groupName.toLowerCase().includes(searchLower));
 
