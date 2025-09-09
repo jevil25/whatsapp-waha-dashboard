@@ -478,34 +478,21 @@ export const userRouter = createTRPCRouter({
 
           const contacts = await response.json() as {
             id: string;
-            number: string;
             name: string;
             pushname: string;
-            shortName: string;
-            isGroup: boolean;
-            isMe: boolean;
-            isUser: boolean;
-            isWAContact: boolean;
-            isMyContact: boolean;
-            isBlocked: boolean;
           }[];
 
-          // Filter out groups and blocked contacts, and only include actual contacts with IDs ending in c.us
+          // Filter to only include actual contacts with IDs ending in c.us or lid
           const filteredContacts = contacts.filter(contact => 
-            !contact.isGroup && 
-            !contact.isBlocked && 
-            !contact.isMe && 
-            contact.isWAContact &&
-            contact.number &&
-            contact.id.endsWith('c.us')
+            contact.id.endsWith('c.us') || contact.id.endsWith('lid')
           );
 
           console.log(filteredContacts)
 
           const items = filteredContacts.map(contact => ({
             groupId: contact.id, // Using contact ID as groupId for consistency
-            groupName: contact.name || contact.pushname || contact.shortName || contact.number,
-            number: contact.number,
+            groupName: contact.name || contact.pushname || contact.id,
+            number: contact.id.split('@')[0], // Extract number from ID
             isContact: true
           }));
 
@@ -538,38 +525,24 @@ export const userRouter = createTRPCRouter({
 
         const contacts = await response.json() as {
           id: string;
-          number: string;
           name: string;
           pushname: string;
-          shortName: string;
-          isGroup: boolean;
-          isMe: boolean;
-          isUser: boolean;
-          isWAContact: boolean;
-          isMyContact: boolean;
-          isBlocked: boolean;
         }[];
 
         console.log(contacts)
 
-        // Filter out groups, blocked contacts, and search - only include contacts with IDs ending in c.us
+        // Filter contacts with IDs ending in c.us or lid and apply search
         const filteredContacts = contacts.filter(contact => 
-          !contact.isGroup && 
-          !contact.isBlocked && 
-          !contact.isMe && 
-          contact.isWAContact &&
-          contact.number &&
-          contact.id.endsWith('c.us') &&
+          (contact.id.endsWith('c.us') || contact.id.endsWith('lid')) &&
           (contact.name?.toLowerCase().includes(searchLower) ||
            contact.pushname?.toLowerCase().includes(searchLower) ||
-           contact.shortName?.toLowerCase().includes(searchLower) ||
-           contact.number?.includes(input.search ?? ''))
+           contact.id.includes(input.search ?? ''))
         );
 
         const items = filteredContacts.slice(0, input.limit).map(contact => ({
           groupId: contact.id,
-          groupName: contact.name || contact.pushname || contact.shortName || contact.number,
-          number: contact.number,
+          groupName: contact.name || contact.pushname || contact.id,
+          number: contact.id.split('@')[0], // Extract number from ID
           isContact: true
         }));
 
