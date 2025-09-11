@@ -131,15 +131,18 @@ export const userRouter = createTRPCRouter({
 
         if (!response.ok) {
           console.error('Failed to create WhatsApp session:', response.statusText);
-          await fetch(`${WAHA_API_URL}/api/sessions/${whatsappSession.sessionName}/stop`, {
+          const restartResponse = await fetch(`${WAHA_API_URL}/api/sessions/${whatsappSession.sessionName}/restart`, {
             method: 'POST',
             headers: WAHA_HEADERS,
           });
+          if (!restartResponse.ok) {
+            console.error('Failed to restart WhatsApp session:', restartResponse.statusText);
+          }
           await db.whatsAppSession.update({
             where: { id: whatsappSession.id },
-            data: { status: 'DISCONNECTED' },
+            data: { status: 'CONNECTED' },
           });
-          throw new Error('Failed to create WhatsApp session');
+          // throw new Error('Failed to create WhatsApp session');
         }
 
         const startResponse = await fetch(`${WAHA_API_URL}/api/sessions/${whatsappSession.sessionName}/start`, {
