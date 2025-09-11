@@ -191,6 +191,13 @@ export default function Home() {
       void pollSessionStatus(sessionName);
     },
     onError: (error) => {
+      if (error.message.includes('Failed to create WhatsApp session')) {
+        // restart the session if it already exists
+        if (whatsAppSession?.sessionName) {
+          void restartSession.mutate({ sessionName: whatsAppSession.sessionName });
+          return;
+        }
+      }
       setError(error.message);
       setCurrentSessionName(null);
     },
