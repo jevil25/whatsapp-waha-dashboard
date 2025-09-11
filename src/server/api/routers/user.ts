@@ -131,6 +131,10 @@ export const userRouter = createTRPCRouter({
 
         if (!response.ok) {
           console.error('Failed to create WhatsApp session:', response.statusText);
+          await fetch(`${WAHA_API_URL}/api/sessions/${whatsappSession.sessionName}/stop`, {
+            method: 'POST',
+            headers: WAHA_HEADERS,
+          });
           await db.whatsAppSession.update({
             where: { id: whatsappSession.id },
             data: { status: 'DISCONNECTED' },
