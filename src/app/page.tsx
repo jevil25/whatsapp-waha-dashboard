@@ -1050,14 +1050,19 @@ const extractMediaFromMessages = (messages: Message[]) => {
                           );
                         case 'STOPPED':
                         case 'FAILED':
-                          return (
+                          return (<>
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mr-4">
+                            <p className="text-yellow-800 text-sm font-medium">
+                              Please try refreshing the page or click "Restart" to reconnect your WhatsApp session.
+                            </p>
+                          </div>
                             <button
                               onClick={() => handleRestart(whatsAppSession.sessionName)}
                               className="text-xs bg-amber-100 text-amber-800 px-3 py-1 rounded-full hover:bg-amber-200 transition-colors"
                             >
                               {restartSession.isPending ? 'Restarting...' : 'Restart'}
                             </button>
-                          );
+                          </>);
                         case 'STARTING':
                           return <span className="text-xs px-3 py-1 rounded-full" style={{ backgroundColor: '#ffd9b3', color: '#d97809' }}>🔄 Starting...</span>;
                         case 'SCAN_QR_CODE':
