@@ -121,7 +121,7 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       const days_width = isRecurring ? recurrenceDaysMap[recurrence] : 1;
 
       // Create message for each day
-      while (currentDate < finalEndDt) {
+      while (currentDate <= finalEndDt) {
         const scheduledDateUtc = currentDate.toUTC().toJSDate();
         const daysLeft = Math.ceil((finalEndDt.toJSDate().getTime() - currentDate.toJSDate().getTime()) / (1000 * 60 * 60 * 24))+1;
 
