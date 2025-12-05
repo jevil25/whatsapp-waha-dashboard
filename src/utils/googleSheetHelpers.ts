@@ -1,3 +1,13 @@
+// Member management disabled - Google Sheets helpers not needed
+export function extractSheetId(input: string): string | undefined {
+  return undefined;
+}
+
+export async function validateSheetAccess(sheetId: string, email: string): Promise<boolean> {
+  return false;
+}
+
+/* Original implementation - Member management disabled
 import { google } from 'googleapis';
 import { env } from '~/env';
 
@@ -48,3 +58,4 @@ export async function validateSheetAccess(sheetId: string, email: string): Promi
     return false;
   }
 }
+*/

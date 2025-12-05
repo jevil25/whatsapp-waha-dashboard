@@ -1,4 +1,15 @@
 import { NextResponse } from 'next/server';
+
+// Member management disabled - returning empty array
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    accounts: []
+  });
+}
+
+/* Original implementation - Member management disabled
+import { NextResponse } from 'next/server';
 import { env } from '~/env';
 
 export async function GET() {
@@ -18,3 +29,4 @@ export async function GET() {
     );
   }
 }
+*/

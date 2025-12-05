@@ -204,17 +204,18 @@ export const messageCampaignRouterV2 = createTRPCRouter({
           messages: {
             create: messages,
           },
-          ...(audienceType === 'groups' && selectedMemberIds && selectedMemberIds.length > 0 ? {
-            members: {
-              create: selectedMemberIds.map(id => ({
-                member: {
-                  connect: {
-                    id,
-                  },
-                }
-              }))
-            }
-          } : {}),
+          // Member selection disabled for channel-only feature
+          // ...(audienceType === 'groups' && selectedMemberIds && selectedMemberIds.length > 0 ? {
+          //   members: {
+          //     create: selectedMemberIds.map(id => ({
+          //       member: {
+          //         connect: {
+          //           id,
+          //         },
+          //       }
+          //     }))
+          //   }
+          // } : {}),
         },
         include: {
           members: {

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { type WhatsAppSessionStatus } from "~/types/session";
 import { AudienceSelector } from './_components/whatsapp/AudienceSelector';
-import { MemberSelector } from './_components/whatsapp/MemberSelector';
+// import { MemberSelector } from './_components/whatsapp/MemberSelector'; // Disabled - member management not needed
 import { CampaignList, type Status, type Campaign as CampaignType, type Message } from './_components/whatsapp/CampaignList';
 import { CompletedCampaignsModal } from './_components/whatsapp/CompletedCampaignsModal';
 import { MediaUpload } from './_components/whatsapp/MediaUpload';
@@ -841,11 +841,10 @@ const extractMediaFromMessages = (messages: Message[]) => {
             audienceType: selectedAudienceType,
             media: media.length > 0 ? media : undefined,
             sheetId: sheetId,
-            ...(selectedAudienceType === 'groups' ? { 
-              selectedMemberIds: selectedClubMemberIds,
-              // receiptIds: receiptIds,
-              // recieptNames: receiptNames
-            } : {}),
+            // Member selection disabled for channel-only feature
+            // ...(selectedAudienceType === 'groups' ? { 
+            //   selectedMemberIds: selectedClubMemberIds,
+            // } : {}),
           });
         });
 

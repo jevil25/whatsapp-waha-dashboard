@@ -1,4 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+
+// Member management disabled - Google Sheets validation not needed
+export async function POST(request: NextRequest) {
+  return NextResponse.json({
+    success: false,
+    error: 'Member management feature is disabled'
+  }, { status: 400 });
+}
+
+/* Original implementation - Member management disabled
+import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { env } from '~/env';
 
@@ -84,3 +95,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+*/

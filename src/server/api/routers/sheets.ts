@@ -1,5 +1,21 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
+
+// Member management disabled - Google Sheets feature not needed
+export const sheetsRouter = createTRPCRouter({
+  validateSheet: protectedProcedure
+    .input(z.object({
+      sheetInput: z.string(),
+      selectedAccount: z.string().optional(),
+    }))
+    .mutation(async () => {
+      throw new Error('Member management feature is disabled');
+    }),
+});
+
+/* Original implementation - Member management disabled
+import { z } from "zod";
+import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { google } from 'googleapis';
 import { env } from "~/env";
 
@@ -76,3 +92,4 @@ export const sheetsRouter = createTRPCRouter({
       return { sheetId };
     }),
 });
+*/

@@ -1,5 +1,35 @@
 "use client";
 
+// Email services disabled - This feature is currently unavailable
+export default function ForgotPasswordForm() {
+  return (
+    <div className="w-full max-w-md">
+      <div className="space-y-6 text-center">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+            Password Reset Unavailable
+          </h2>
+          <p className="mt-4 text-sm text-gray-600">
+            The password reset feature is currently disabled. Please contact your administrator for assistance.
+          </p>
+        </div>
+        
+        <div className="mt-6">
+          <a
+            href="/auth"
+            className="text-sm font-medium text-blue-600 hover:text-blue-500"
+          >
+            ← Back to Sign In
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Original implementation - Email services disabled
+"use client";
+
 import { useState } from "react";
 import { authClient } from "~/client/auth";
 
@@ -159,3 +189,4 @@ export default function ForgotPasswordForm() {
     </div>
   );
 }
+*/

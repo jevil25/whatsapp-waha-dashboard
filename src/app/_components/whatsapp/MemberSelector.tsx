@@ -49,7 +49,7 @@ export function MemberSelector({
   const uniqueGoogleAccounts = [...new Set(members.map(m => m.sheetEmail))].filter(Boolean);
 
   const validateSheetMutation = api.sheets.validateSheet.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: { sheetId: string }) => {
       setValidationError('');
       setValidationStatus('success');
       setValidating(false);
@@ -107,8 +107,8 @@ export function MemberSelector({
 
     setValidating(true);
     validateSheetMutation.mutate({
-      sheetUrl,
-      sheetEmail: selectedGoogleAccount
+      sheetInput: sheetUrl,
+      selectedAccount: selectedGoogleAccount
     });
   };
 
