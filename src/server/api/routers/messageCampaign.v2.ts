@@ -30,7 +30,7 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       targetAmount: z.string().optional(),
       messageTemplate: z.string(),
       sheetId: z.string().optional(),
-      audienceType: z.enum(['groups', 'individuals', 'members']).default('groups'),
+      audienceType: z.enum(['channels']).default('channels'),
       selectedMemberIds: z.array(z.string()).optional(), // Add this for member campaigns
       receiptIds: z.array(z.string()).optional(), // Receipt IDs for campaign receivers
       recieptNames: z.array(z.string()).optional(), // Receipt names for campaign receivers (note: keeping existing typo in schema)
@@ -384,7 +384,7 @@ export const messageCampaignRouterV2 = createTRPCRouter({
       campaignId: z.string(),
       targetAmount: z.string().optional(),
       messageTemplate: z.string(),
-      audienceType: z.enum(['groups', 'individuals', 'members']).default('groups'),
+      audienceType: z.enum(['channels']).default('channels'),
       receiptIds: z.array(z.string()).optional(), // Receipt IDs for campaign receivers
       recieptNames: z.array(z.string()).optional(), // Receipt names for campaign receivers
     }))

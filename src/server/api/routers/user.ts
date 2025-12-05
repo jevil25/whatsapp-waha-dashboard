@@ -570,4 +570,70 @@ export const userRouter = createTRPCRouter({
         throw error;
       }
     }),
+
+  getWhatsAppChannels: userProcedure
+    .input(z.object({
+      sessionName: z.string(),
+      role: z.enum(['OWNER', 'ADMIN', 'SUBSCRIBER']).optional(),
+    }))
+    .query(async ({ input }) => {
+      if (!WAHA_API_URL) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'WhatsApp API URL is not configured',
+        });
+      }
+
+      try {
+        // Build the URL with optional role filter
+        let url = `${WAHA_API_URL}/api/${input.sessionName}/channels`;
+        if (input.role) {
+          url += `?role=${input.role}`;
+        }
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            ...WAHA_HEADERS,
+            'Priority': 'u=1, i',
+            'Cache-Control': 'no-cache',
+          },
+        });
+
+        if (!response.ok) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to fetch WhatsApp channels: ${response.status} ${response.statusText}`,
+          });
+        }
+
+        const channels = await response.json() as {
+          id: string;
+          name: string;
+          description?: string;
+          invite?: string;
+          picture?: string;
+          verified: boolean;
+          role: 'OWNER' | 'ADMIN' | 'SUBSCRIBER';
+        }[];
+
+        return channels.map(channel => ({
+          id: channel.id,
+          name: channel.name,
+          description: channel.description,
+          invite: channel.invite,
+          picture: channel.picture,
+          verified: channel.verified,
+          role: channel.role
+        }));
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new TRPCError({
+            code: 'TIMEOUT',
+            message: 'Request timeout while fetching WhatsApp channels',
+          });
+        }
+        throw error;
+      }
+    }),
 });

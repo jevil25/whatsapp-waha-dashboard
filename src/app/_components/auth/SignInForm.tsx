@@ -66,6 +66,7 @@ export function SignInForm() {
           className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
           disabled={loading}
         />
+        {/* Email services disabled - Forgot password feature commented out
         <div className="mt-1 text-right">
           <a
             href="/auth/forgot-password"
@@ -74,6 +75,7 @@ export function SignInForm() {
             Forgot your password?
           </a>
         </div>
+        */}
       </div>
 
       {error && (

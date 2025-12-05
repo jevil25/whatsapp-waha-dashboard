@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from "~/trpc/react";
 
-type AudienceType = 'groups' | 'individuals' | 'members';
+type AudienceType = 'channels';
 
 interface AudienceSelectorProps {
   sessionName: string;
@@ -11,39 +11,20 @@ interface AudienceSelectorProps {
   onAudienceTypeChange: (type: AudienceType) => void;
 }
 
-type ClubMember = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  memoId: string;
-  phoneNumber: string;
-};
-
-interface BaseAudience {
+interface WhatsAppChannel {
   id: string;
   name: string;
+  description?: string;
+  invite?: string;
+  picture?: string;
+  verified: boolean;
+  role: 'OWNER' | 'ADMIN' | 'SUBSCRIBER';
 }
 
-interface GroupAudience extends BaseAudience {
-  number?: never;
-}
-
-interface ContactAudience extends BaseAudience {
-  number: string;
-}
-
-type AudienceStateType = GroupAudience | ContactAudience;
-
-interface WhatsAppGroup {
-  groupId: string;
-  groupName: string;
-}
-
-interface WhatsAppContact {
-  groupId: string;
-  groupName: string;
-  number: string;
-  isContact: boolean;
+interface ChannelAudience {
+  id: string;
+  name: string;
+  role?: string;
 }
 
 export function AudienceSelector({
@@ -55,163 +36,40 @@ export function AudienceSelector({
 }: AudienceSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedGroupsState, setSelectedGroupsState] = useState<AudienceStateType[]>([]);
-  const [selectedContactsState, setSelectedContactsState] = useState<AudienceStateType[]>([]);
-  const [selectedMembersState, setSelectedMembersState] = useState<AudienceStateType[]>([]);
+  const [selectedChannelsState, setSelectedChannelsState] = useState<ChannelAudience[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Club Members API
-  const { data: clubMembers, isLoading: isLoadingMembers } = api.admin.getClubMembers.useQuery(undefined, {
-    staleTime: 0,
-    enabled: selectedAudienceType === 'members'
-  });
-
-  // Render member selection section
-  const renderMemberSection = () => (
-    <div className="space-y-2">
-      {/* All Members Toggle */}
-      <div className="px-4 py-2 border-b">
-        <label className="flex items-center space-x-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={clubMembers?.length === selectedMembersState.length}
-            onChange={() => {
-              if (clubMembers) {
-                if (clubMembers.length === selectedMembersState.length) {
-                  setSelectedMembersState([]);
-                  onAudienceSelect([], [], 'members');
-                } else {
-                  const newSelectedMembers = clubMembers.map(member => ({
-                    id: member.id,
-                    name: `${member.firstName} ${member.lastName}`,
-                    number: member.phoneNumber ?? ""
-                  }));
-                  setSelectedMembersState(newSelectedMembers);
-                  onAudienceSelect(
-                    newSelectedMembers.map(m => m.id),
-                    newSelectedMembers.map(m => m.name),
-                    'members'
-                  );
-                }
-              }
-            }}
-            className="form-checkbox h-4 w-4 text-[#d97809] border-gray-300 rounded focus:ring-[#d97809]"
-          />
-          <span className="text-sm font-medium text-gray-700">
-            Select All Members
-          </span>
-        </label>
-      </div>
-
-      {/* Member List */}
-      <div className="px-4 space-y-2">
-        {isLoadingMembers ? (
-          <div className="py-2 text-center text-gray-500">Loading members...</div>
-        ) : !clubMembers?.length ? (
-          <div className="py-2 text-center text-gray-500">No members found</div>
-        ) : clubMembers ? (
-          clubMembers.map((member) => (
-            <div key={member.id} className="flex items-center justify-between py-2">
-              <label className="flex items-center space-x-2 cursor-pointer flex-1">
-                <input
-                  type="checkbox"
-                  checked={selectedMembersState.some(m => m.id === member.id)}
-                  onChange={() => handleMemberToggle({ ...member, phoneNumber: member.phoneNumber ?? "" })}
-                  className="form-checkbox h-4 w-4 text-[#d97809] border-gray-300 rounded focus:ring-[#d97809]"
-                />
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-gray-700">
-                    {member.firstName} {member.lastName}
-                  </span>
-                  <div className="flex flex-col">
-                    <span className="text-xs text-gray-500">
-                      {member.phoneNumber}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      Memo ID: {member.memoId}
-                    </span>
-                  </div>
-                </div>
-              </label>
-            </div>
-          ))
-        ) : null}
-      </div>
-    </div>
-  );
-
-  // Groups API - Fetch all groups at once since server returns all groups
+  // Channels API - Fetch only OWNER and ADMIN channels (where user can send messages)
   const { 
-    data: groupsData, 
-    isLoading: isLoadingGroups
-  } = api.user.getWhatsAppGroups.useQuery({
-    sessionName
+    data: channelsData, 
+    isLoading: isLoadingChannels,
+    refetch: refetchChannels 
+  } = api.user.getWhatsAppChannels.useQuery({
+    sessionName,
   }, {
     staleTime: 0,
     refetchOnWindowFocus: false,
     refetchOnMount: true,
-    enabled: selectedAudienceType === 'groups',
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     networkMode: 'always',
-    meta: {
-      priority: 'high'
-    }
   });
 
-  // Contacts API
-  const { 
-    data: contactsData, 
-    fetchNextPage: fetchNextContactsPage, 
-    hasNextPage: hasNextContactsPage, 
-    isFetchingNextPage: isFetchingNextContactsPage, 
-    isLoading: isLoadingContacts, 
-    refetch: refetchContacts 
-  } = api.user.getWhatsAppContacts.useInfiniteQuery({
-    sessionName,
-    limit: 50,
-    search: searchQuery,
-  }, {
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
-    staleTime: 0,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    enabled: false, // Don't fetch automatically - only when user searches
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    networkMode: 'always',
-    meta: {
-      priority: 'high'
-    }
-  });
-
-  const allGroups = groupsData?.items ?? [];
-  const filteredGroups = searchQuery.trim()
-    ? allGroups.filter(group =>
-        group?.groupName?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ?? false
+  // Filter channels by search query and role (only OWNER or ADMIN can send messages)
+  const allChannels = channelsData?.filter(channel => 
+    channel.role === 'OWNER' || channel.role === 'ADMIN'
+  ) ?? [];
+  
+  const filteredChannels = searchQuery.trim()
+    ? allChannels.filter(channel =>
+        channel.name.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+        channel.description?.toLowerCase().includes(searchQuery.trim().toLowerCase())
       )
-    : allGroups;
-  const allContacts = contactsData?.pages.flatMap(page => page.items) ?? [];
-  
-  // Merge current search results with previously selected contacts
-  const mergedContacts = [...allContacts];
-  // Add previously selected contacts that are not in current search results
-  selectedContactsState.forEach(selectedContact => {
-    if (!allContacts.some(contact => contact.groupId === selectedContact.id)) {
-      mergedContacts.unshift({
-        groupId: selectedContact.id,
-        groupName: selectedContact.name,
-        number: selectedContact.number ?? '',
-        isContact: true
-      });
-    }
-  });
-  
+    : allChannels;
+
   // Get current selections for display
-  const currentSelectedGroups = selectedAudienceType === 'groups' ? 
-    allGroups.filter(g => selectedAudienceIds.includes(g.groupId)) : [];
+  const currentSelectedChannels = allChannels.filter(c => selectedAudienceIds.includes(c.id));
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -220,225 +78,69 @@ export function AudienceSelector({
       }
     };
 
-    const handleScroll = () => {
-      // No longer needed since we're using absolute positioning
-    };
-
-    const handleResize = () => {
-      // No longer needed since we're using absolute positioning
-    };
-
     document.addEventListener('mousedown', handleClickOutside);
-    window.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', handleResize);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleChannelSelect = (channelId: string, channelName: string, channelRole: string) => {
+    const channel = allChannels.find(c => c.id === channelId);
+    if (!channel) return;
     
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [isOpen]);
-
-  // const handleScroll = () => {
-  //   if (!listRef.current) return;
-    
-  //   const { scrollTop, scrollHeight, clientHeight } = listRef.current;
-  //   if (scrollHeight - scrollTop <= clientHeight * 1.2) {
-  //     if (selectedAudienceType === 'groups' && hasNextGroupsPage && !isFetchingNextGroupsPage) {
-  //       void fetchNextGroupsPage();
-  //     } else if (selectedAudienceType === 'individuals' && hasNextContactsPage && !isFetchingNextContactsPage) {
-  //       void fetchNextContactsPage();
-  //     }
-  //   }
-  // };
-
-  const handleSearch = () => {
-    if (isLoading) return; // Prevent multiple searches while loading
-    
-    if (selectedAudienceType === 'individuals') {
-      void refetchContacts();
-    }
-  };
-
-  const handleToggleDropdown = () => {
-    setIsOpen(!isOpen);
-  };
-
-  const handleAudienceTypeChange = (type: 'groups' | 'individuals' | 'members') => {
-    onAudienceTypeChange(type);
-    setSelectedGroupsState([]);
-    setSelectedContactsState([]);
-    setSelectedMembersState([]);
-    setSearchQuery('');
-    setIsOpen(false);
-    // Clear parent component selections
-    onAudienceSelect([], [], type);
-  };
-
-  const handleGroupSelect = (groupId: string, groupName: string) => {
-    const group = allGroups.find(g => g.groupId === groupId);
-    if (!group) return;
-    
-    const groupInfo: AudienceStateType = {
-      id: groupId,
-      name: groupName,
-      number: "" // Groups don't have numbers, but we need to satisfy the type
+    const channelInfo = {
+      id: channelId,
+      name: channelName,
+      role: channelRole
     };
     
-    let newSelectedGroups: AudienceStateType[];
-    if (selectedGroupsState.some(g => g.id === groupId)) {
+    let newSelectedChannels: ChannelAudience[];
+    if (selectedChannelsState.some(c => c.id === channelId)) {
       // Remove from selection
-      newSelectedGroups = selectedGroupsState.filter(g => g.id !== groupId);
+      newSelectedChannels = selectedChannelsState.filter(c => c.id !== channelId);
     } else {
-      // Add to selection (allow multiple groups)
-      newSelectedGroups = [...selectedGroupsState, groupInfo];
+      // Add to selection (allow multiple channels)
+      newSelectedChannels = [...selectedChannelsState, channelInfo];
     }
     
-    setSelectedGroupsState(newSelectedGroups);
+    setSelectedChannelsState(newSelectedChannels);
     onAudienceSelect(
-      newSelectedGroups.map(g => g.id),
-      newSelectedGroups.map(g => g.name),
-      'groups'
-    );
-  };
-
-  const handleContactSelect = (contactId: string, contactName: string) => {
-    const contact = mergedContacts.find(c => c.groupId === contactId);
-    if (!contact) return;
-    
-    const contactInfo: AudienceStateType = {
-      id: contactId,
-      name: contactName,
-      number: contact.number || "" // Ensure number is always a string
-    };
-    
-    let newSelectedContacts: AudienceStateType[];
-    if (selectedContactsState.some(c => c.id === contactId)) {
-      // Remove from selection
-      newSelectedContacts = selectedContactsState.filter(c => c.id !== contactId);
-    } else if (selectedContactsState.length < 15) {
-      // Add to selection (max 15 contacts)
-      newSelectedContacts = [...selectedContactsState, contactInfo];
-    } else {
-      // Max limit reached
-      return;
-    }
-    
-    setSelectedContactsState(newSelectedContacts);
-    onAudienceSelect(
-      newSelectedContacts.map(c => c.id),
-      newSelectedContacts.map(c => c.name),
-      'individuals'
-    );
-  };
-
-  const handleMemberToggle = (member: ClubMember) => {
-    const memberId = member.id;
-    const memberName = `${member.firstName} ${member.lastName}`;
-    
-    let newSelectedMembers: AudienceStateType[];
-    if (selectedMembersState.some(m => m.id === memberId)) {
-      // Remove from selection
-      newSelectedMembers = selectedMembersState.filter(m => m.id !== memberId);
-    } else {
-      // Add to selection
-      newSelectedMembers = [...selectedMembersState, {
-        id: memberId,
-        name: memberName,
-        number: member.phoneNumber || "" // Ensure we always have a string
-      }];
-    }
-    
-    setSelectedMembersState(newSelectedMembers);
-    onAudienceSelect(
-      newSelectedMembers.map(m => m.id),
-      newSelectedMembers.map(m => m.name),
-      'members'
+      newSelectedChannels.map(c => c.id),
+      newSelectedChannels.map(c => c.name),
+      'channels'
     );
   };
 
   const handleConfirmSelection = () => {
-    if (selectedAudienceType === 'groups' && selectedGroupsState.length > 0) {
+    if (selectedChannelsState.length > 0) {
       onAudienceSelect(
-        selectedGroupsState.map(g => g.id),
-        selectedGroupsState.map(g => g.name),
-        'groups'
-      );
-      setIsOpen(false);
-    } else if (selectedAudienceType === 'individuals' && selectedContactsState.length > 0) {
-      onAudienceSelect(
-        selectedContactsState.map(c => c.id),
-        selectedContactsState.map(c => c.name),
-        'individuals'
-      );
-      setIsOpen(false);
-    } else if (selectedAudienceType === 'members' && selectedMembersState.length > 0) {
-      onAudienceSelect(
-        selectedMembersState.map(m => m.id),
-        selectedMembersState.map(m => m.name),
-        'members'
+        selectedChannelsState.map(c => c.id),
+        selectedChannelsState.map(c => c.name),
+        'channels'
       );
       setIsOpen(false);
     }
   };
 
-  const isLoading: boolean = selectedAudienceType === 'groups' 
-    ? isLoadingGroups ?? false
-    : selectedAudienceType === 'individuals'
-    ? isLoadingContacts ?? false
-    : isLoadingMembers ?? false;
+  const isLoading = isLoadingChannels;
 
   return (
     <div className="space-y-4">
-      {/* Audience Type Selection */}
-      <div>
-        <label htmlFor="audienceType" className="block text-sm font-medium text-gray-700 mb-2">
-          Audience Type
-        </label>
-        <select
-          id="audienceType"
-          value={selectedAudienceType}
-          onChange={(e) => onAudienceTypeChange(e.target.value as 'groups' | 'individuals' | 'members')}
-          className="w-full px-3 py-2 border-2 border-[#d97809] rounded-md focus:outline-none focus:ring-2 focus:ring-[#d97809] bg-white"
-        >
-          <option value="groups">Groups</option>
-          <option value="individuals">Individuals</option>
-        </select>
-      </div>
-
-      {/* Audience Selector */}
+      {/* Channel Selector */}
       <div className="relative" ref={dropdownRef}>
         <div className="flex flex-col space-y-2">
+          <label htmlFor="channelSelector" className="block text-sm font-medium text-gray-700">
+            Select WhatsApp Channels
+          </label>
           <div 
-            ref={buttonRef}
-            onClick={handleToggleDropdown}
-            className={`flex items-center justify-between w-full px-4 py-3 bg-white border-2 border-[#d97809] rounded-lg cursor-pointer hover:border-[#b85e07] hover:bg-[#fff3e0] transition-colors ${isLoading ? 'opacity-75' : ''}`}
+            onClick={() => setIsOpen(!isOpen)}
+            className={`flex items-center justify-between w-full px-4 py-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-[#00a884] transition-colors ${isLoading ? 'opacity-75' : ''}`}
           >
             <div className="flex-1 truncate">
-              {selectedAudienceType === 'groups' ? (
-                currentSelectedGroups.length > 0 ? (
-                  <span className="text-gray-900">
-                    {currentSelectedGroups.length} group{currentSelectedGroups.length > 1 ? 's' : ''} selected
-                  </span>
-                ) : (
-                  <span className="text-gray-500">Choose groups...</span>
-                )
-              ) : selectedAudienceType === 'individuals' ? (
-                selectedContactsState.length > 0 ? (
-                  <span className="text-gray-900">
-                    {selectedContactsState.length} contact{selectedContactsState.length > 1 ? 's' : ''} selected
-                  </span>
-                ) : (
-                  <span className="text-gray-500">Choose contacts (max 15)...</span>
-                )
+              {currentSelectedChannels.length > 0 ? (
+                <span className="text-gray-900">
+                  {currentSelectedChannels.length} channel{currentSelectedChannels.length > 1 ? 's' : ''} selected
+                </span>
               ) : (
-                selectedMembersState.length > 0 ? (
-                  <span className="text-gray-900">
-                    {selectedMembersState.length} member{selectedMembersState.length > 1 ? 's' : ''} selected
-                  </span>
-                ) : (
-                  <span className="text-gray-500">Choose club members...</span>
-                )
+                <span className="text-gray-500">Choose channels...</span>
               )}
             </div>
             <svg className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20">
@@ -447,279 +149,163 @@ export function AudienceSelector({
           </div>
 
           {isOpen && (
-            <div 
-              className="absolute z-[9999] bg-white rounded-lg shadow-2xl border-2 border-[#d97809] max-h-96 overflow-hidden"
-              style={{
-                top: '100%',
-                left: '0',
-                right: '0',
-                marginTop: '4px'
-              }}
-            >
-              <div className="p-3 border-b border-[#d97809] bg-gradient-to-r from-[#fff3e0] to-[#ffd9b3]">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !isLoading && searchQuery.trim() && selectedAudienceType === 'individuals') {
-                          handleSearch();
-                        }
-                      }}
-                      placeholder={selectedAudienceType === 'groups' ? "Search groupss..." : "Search contacts..."}
-                      className="w-full pl-10 pr-3 py-2 text-sm border-2 border-[#d97809] rounded-md focus:outline-none focus:ring-2 focus:ring-[#d97809] focus:border-[#d97809] bg-white"
-                    />
+            <div className="absolute z-50 w-full mt-1 bg-white rounded-lg shadow-xl border border-gray-200 max-h-96 overflow-hidden">
+              {/* Search Bar */}
+              <div className="p-3 border-b border-gray-200 bg-gray-50">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search channels..."
+                    className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00a884] focus:border-[#00a884]"
+                  />
+                  <svg 
+                    className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <p className="mt-2 text-xs text-gray-600">
+                  💡 Only channels where you are OWNER or ADMIN are shown
+                </p>
+              </div>
+
+              {/* Channels List */}
+              <div 
+                ref={listRef}
+                className="overflow-y-auto max-h-80"
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="flex flex-col items-center space-y-2">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00a884]" />
+                      <span className="text-sm text-gray-500">Loading channels...</span>
+                    </div>
+                  </div>
+                ) : !channelsData ? (
+                  <div className="py-6 px-4 text-center">
                     <svg 
-                      className="absolute left-3 top-2.5 h-4 w-4 text-[#d97809]"
+                      className="mx-auto h-12 w-12 text-gray-400"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                     </svg>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No Channels Available</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Create a channel on WhatsApp to get started
+                    </p>
                   </div>
-                  <button
-                    onClick={handleSearch}
-                    disabled={isLoading}
-                    className="px-4 py-2 bg-[#d97809] text-white rounded-md hover:bg-[#b85e07] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
-                  >
-                    {isLoading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                        <span>Searching...</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg 
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <span>Search</span>
-                      </>
-                    )}                    </button>
+                ) : filteredChannels.length === 0 ? (
+                  <div className="py-3 px-4 text-sm text-gray-500 text-center">
+                    No channels found matching your search
                   </div>
-                </div>
-
-                <div 
-                  ref={listRef}
-                  // onScroll={handleScroll}
-                  className="max-h-[300px] overflow-y-auto overscroll-contain scroll-smooth"
-                >
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="flex flex-col items-center space-y-2">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#d97809]" />
-                      <span className="text-sm text-gray-500">
-                        {selectedAudienceType === 'groups' ? 'Searching groups...' : 'Searching contacts...'}
-                      </span>
-                    </div>
-                  </div>
-                ) : selectedAudienceType === 'groups' ? (
-                  // Groups display
-                  !groupsData ? (
-                    <div className="py-6 px-4 text-center">
-                      <svg 
-                        className="mx-auto h-12 w-12 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">Search for WhatsApp Groups</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Enter a search term and click search to find your WhatsApp groups
-                      </p>
-                    </div>
-                  ) : filteredGroups.length === 0 ? (
-                    <div className="py-3 px-4 text-sm text-gray-500 text-center">
-                      No groups found matching your search
-                    </div>
-                  ) : (
-                    <>
-                      {filteredGroups.map((group, index) => (
-                        <div
-                          key={`group-${index}`}
-                          onClick={() => handleGroupSelect(group.groupId, group.groupName)}
-                          className={`px-4 py-3 cursor-pointer flex items-center space-x-3 ${
-                            selectedGroupsState.some(g => g.id === group.groupId)
-                              ? 'bg-[#fff3e0] text-[#d97809]'
-                              : 'hover:bg-gray-50 text-gray-900'
-                          }`}
-                        >
-                          <div className="flex-shrink-0 w-8 h-8 bg-[#d97809] bg-opacity-10 rounded-full flex items-center justify-center">
-                            <svg className="w-4 h-4 text-[#d97809]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                          </div>
-                          <span className="flex-1 truncate text-sm">
-                            {group.groupName}
-                          </span>
-                          {selectedGroupsState.some(g => g.id === group.groupId) && (
-                            <svg className="w-5 h-5 text-[#d97809]" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </div>
-                      ))}
-                      {/* {isFetchingNextGroupsPage && (
-                        <div className="flex items-center justify-center py-3">
-                          <div className="flex items-center space-x-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#d97809]" />
-                            <span className="text-sm text-gray-500">Loading more groups...</span>
-                          </div>
-                        </div>
-                      )} */}
-                      {selectedAudienceType === 'groups' && selectedGroupsState.length > 0 && (
-                        <div className="p-4 border-t border-gray-200">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-medium text-gray-700">
-                              {selectedGroupsState.length} group{selectedGroupsState.length > 1 ? 's' : ''} selected
-                            </span>
-                            <button
-                              onClick={handleConfirmSelection}
-                              className="px-3 py-1 bg-[#d97809] text-white text-sm rounded-md hover:bg-[#b85e07] transition-colors"
-                            >
-                              Confirm Selection
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )
                 ) : (
-                  // Contacts display
-                  !contactsData ? (
-                    <div className="py-6 px-4 text-center">
-                      <svg 
-                        className="mx-auto h-12 w-12 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                  <>
+                    {filteredChannels.map((channel) => (
+                      <div
+                        key={channel.id}
+                        onClick={() => handleChannelSelect(channel.id, channel.name, channel.role)}
+                        className={`px-4 py-3 cursor-pointer flex items-center space-x-3 ${
+                          selectedChannelsState.some(c => c.id === channel.id)
+                            ? 'bg-[#e7f8f5] text-[#00a884]'
+                            : 'hover:bg-gray-50 text-gray-900'
+                        }`}
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">Search for WhatsApp Contacts</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Enter a search term and click search to find your WhatsApp contacts
-                      </p>
-                    </div>
-                  ) : mergedContacts.length === 0 ? (
-                    <div className="py-3 px-4 text-sm text-gray-500 text-center">
-                      No contacts found matching your search
-                    </div>
-                  ) : (
-                    <>
-                      {mergedContacts.map((contact, index) => (
-                        <div
-                          key={`contact-${index}`}
-                          onClick={() => handleContactSelect(contact.groupId, contact.groupName)}
-                          className={`px-4 py-3 cursor-pointer flex items-center space-x-3 ${
-                            selectedContactsState.some(c => c.id === contact.groupId)
-                              ? 'bg-[#fff3e0] text-[#d97809]'
-                              : 'hover:bg-gray-50 text-gray-900'
-                          }`}
-                        >
-                          <div className="flex-shrink-0 w-8 h-8 bg-[#d97809] bg-opacity-10 rounded-full flex items-center justify-center">
-                            <svg className="w-4 h-4 text-[#d97809]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                          </div>
-                          <span className="flex-1 truncate text-sm">
-                            {contact.groupName}
-                            {contact.number && (
-                              <span className="text-xs text-gray-500 block">
-                                {contact.number}
-                              </span>
-                            )}
-                          </span>
-                          {selectedContactsState.some(c => c.id === contact.groupId) && (
-                            <svg className="w-5 h-5 text-[#d97809]" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          )}
+                        <div className="shrink-0 w-8 h-8 bg-[#25D366] bg-opacity-10 rounded-full flex items-center justify-center">
+                          <svg className="w-4 h-4 text-[#00a884]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                          </svg>
                         </div>
-                      ))}
-                      {isFetchingNextContactsPage && (
-                        <div className="flex items-center justify-center py-3">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#d97809]" />
-                            <span className="text-sm text-gray-500">Loading more contacts...</span>
-                          </div>
-                        </div>
-                      )}
-                      {selectedAudienceType === 'individuals' && selectedContactsState.length > 0 && (
-                        <div className="p-4 border-t border-gray-200">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-medium text-gray-700">
-                              {selectedContactsState.length}/15 contacts selected
+                            <span className="truncate text-sm font-medium">
+                              {channel.name}
                             </span>
-                            <button
-                              onClick={handleConfirmSelection}
-                              className="px-3 py-1 bg-[#d97809] text-white text-sm rounded-md hover:bg-[#b85e07] transition-colors"
-                            >
-                              Confirm Selection
-                            </button>
+                            {channel.verified && (
+                              <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-[#00a884] bg-opacity-10 text-[#00a884]">
+                              {channel.role}
+                            </span>
                           </div>
-                          {selectedContactsState.length >= 15 && (
-                            <p className="text-xs text-amber-600">
-                              Maximum 15 contacts can be selected per message
+                          {channel.description && (
+                            <p className="text-xs text-gray-500 truncate mt-0.5">
+                              {channel.description}
                             </p>
                           )}
+                          <p className="text-xs text-gray-400 mt-0.5 font-mono">
+                            {channel.id}
+                          </p>
                         </div>
-                      )}
-                    </>
-                  )
+                        {selectedChannelsState.some(c => c.id === channel.id) && (
+                          <svg className="w-5 h-5 text-[#00a884]" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                    ))}
+                    {selectedChannelsState.length > 0 && (
+                      <div className="p-4 border-t border-gray-200">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm font-medium text-gray-700">
+                            {selectedChannelsState.length} channel{selectedChannelsState.length > 1 ? 's' : ''} selected
+                          </span>
+                          <button
+                            onClick={handleConfirmSelection}
+                            className="px-3 py-1 bg-[#00a884] text-white text-sm rounded-md hover:bg-[#008f6c] transition-colors"
+                          >
+                            Confirm Selection
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
-                </div>
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Selected Audience Display */}
-      {selectedAudienceType === 'groups' && currentSelectedGroups.length > 0 && (
+      {/* Selected Channels Display */}
+      {currentSelectedChannels.length > 0 && (
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-start space-x-4">
-            <div className="w-12 h-12 bg-[#d97809] rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 bg-[#00a884] rounded-lg flex items-center justify-center shrink-0">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
             </div>
             <div className="flex-1 min-w-0">
               <h4 className="text-lg font-medium text-gray-900 truncate">
-                {currentSelectedGroups.length} Group{currentSelectedGroups.length > 1 ? 's' : ''} Selected
+                {currentSelectedChannels.length} Channel{currentSelectedChannels.length > 1 ? 's' : ''} Selected
               </h4>
               <p className="mt-1 text-sm text-gray-500">
-                {currentSelectedGroups.slice(0, 3).map(g => g.groupName).join(', ')}
-                {currentSelectedGroups.length > 3 && ` and ${currentSelectedGroups.length - 3} more`}
+                {currentSelectedChannels.slice(0, 3).map(c => c.name).join(', ')}
+                {currentSelectedChannels.length > 3 && ` and ${currentSelectedChannels.length - 3} more`}
               </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {selectedAudienceType === 'individuals' && selectedContactsState.length > 0 && (
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-start space-x-4">
-            <div className="w-12 h-12 bg-[#d97809] rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="text-lg font-medium text-gray-900">
-                {selectedContactsState.length} Contact{selectedContactsState.length > 1 ? 's' : ''} Selected
-              </h4>
-              <div className="mt-1 text-sm text-gray-500">
-                {selectedContactsState.slice(0, 3).map(contact => contact.name).join(', ')}
-                {selectedContactsState.length > 3 && ` and ${selectedContactsState.length - 3} more`}
+              <div className="mt-2 flex flex-wrap gap-2">
+                {currentSelectedChannels.map(channel => (
+                  <span 
+                    key={channel.id}
+                    className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#00a884] bg-opacity-10 text-[#00a884]"
+                  >
+                    {channel.name}
+                    {channel.verified && (
+                      <svg className="ml-1 w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </span>
+                ))}
               </div>
             </div>
           </div>

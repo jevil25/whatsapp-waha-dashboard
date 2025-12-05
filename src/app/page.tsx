@@ -26,7 +26,7 @@ export default function Home() {
   const [currentSessionName, setCurrentSessionName] = useState<string | null>(null);
   const [selectedAudienceIds, setSelectedAudienceIds] = useState<string[]>([]);
   const [selectedAudienceNames, setSelectedAudienceNames] = useState<string[]>([]);
-  const [selectedAudienceType, setSelectedAudienceType] = useState<'groups' | 'individuals' | 'members'>('groups');
+  const [selectedAudienceType, setSelectedAudienceType] = useState<'channels'>('channels');
   const [screenshotKey, setScreenshotKey] = useState(0);
   const [sheetId, setSheetId] = useState<string>("");
 
@@ -598,7 +598,7 @@ const extractMediaFromMessages = (messages: Message[]) => {
     setTargetAmount('');
     setSelectedAudienceIds([]);
     setSelectedAudienceNames([]);
-    setSelectedAudienceType('groups');
+    setSelectedAudienceType('channels');
     setIsFreeForm(false);
   };
 
@@ -675,8 +675,8 @@ const extractMediaFromMessages = (messages: Message[]) => {
       if (!validateMessageSequence(messages)) return;
     }
 
-    // Validate receipt fields when groups + members are selected
-    if (selectedAudienceType === 'groups' && selectedClubMemberIds.length > 0) {
+    // Validation no longer needed - channels don't require receipt validation
+    // if (selectedAudienceType === 'channels' && selectedClubMemberIds.length > 0) {
       // if (receiptIds.length === 0 || receiptNames.length === 0) {
       //   setSubmitStatus({
       //     type: 'error',
@@ -684,7 +684,7 @@ const extractMediaFromMessages = (messages: Message[]) => {
       //   });
       //   return;
       // }
-    }
+    // }
 
     setSubmitStatus(null);
     
@@ -790,7 +790,7 @@ const extractMediaFromMessages = (messages: Message[]) => {
           setTargetAmount('');
           setSelectedAudienceIds([]);
           setSelectedAudienceNames([]);
-          setSelectedAudienceType('groups');
+          setSelectedAudienceType('channels');
           // setReceiptIds([]);
           // setReceiptNames([]);
           // setReceiptIdInput('');
@@ -867,15 +867,16 @@ const extractMediaFromMessages = (messages: Message[]) => {
         setTargetAmount('');
         setSelectedAudienceIds([]);
         setSelectedAudienceNames([]);
-        setSelectedAudienceType('groups');
+        setSelectedAudienceType('channels');
         // setReceiptIds([]);
         // setReceiptNames([]);
         // setReceiptIdInput('');
         // setReceiptNameInput('');
-          setMedia([]);
-          
-          // Refetch campaigns
-          void trpcUtils.messageCampaign.getCampaigns.invalidate();      } catch (error) {
+        setMedia([]);
+        
+        // Refetch campaigns
+        void trpcUtils.messageCampaign.getCampaigns.invalidate();
+      } catch (error) {
         setSubmitStatus({
           type: 'error',
           message: error instanceof Error ? error.message : 'Failed to create campaigns'
@@ -883,6 +884,27 @@ const extractMediaFromMessages = (messages: Message[]) => {
       }
     }
   };
+
+  const handleAudienceSelect = (audienceIds: string[], audienceNames: string[], audienceType: 'channels') => {
+    setSelectedAudienceIds(audienceIds);
+    setSelectedAudienceNames(audienceNames);
+    setSelectedAudienceType(audienceType);
+    setSubmitStatus(null);
+  }
+
+  const handleAudienceTypeChange = (type: 'channels') => {
+    setSelectedAudienceType(type);
+    // Clear selection when switching audience types
+    setSelectedAudienceIds([]);
+    setSelectedAudienceNames([]);
+  };
+
+  // Handle redirect to auth page if no session
+  useEffect(() => {
+    if (!isPending && !session?.user) {
+      router.push("/auth");
+    }
+  }, [isPending, session?.user, router]);
 
   if (isPending) {
     return (
@@ -897,23 +919,8 @@ const extractMediaFromMessages = (messages: Message[]) => {
   }
 
   if (!session?.user) {
-    router.push("/auth");
     return null;
   }
-
-  const handleAudienceSelect = (audienceIds: string[], audienceNames: string[], audienceType: 'groups' | 'individuals' | 'members') => {
-    setSelectedAudienceIds(audienceIds);
-    setSelectedAudienceNames(audienceNames);
-    setSelectedAudienceType(audienceType);
-    setSubmitStatus(null);
-  }
-
-  const handleAudienceTypeChange = (type: 'groups' | 'individuals' | 'members') => {
-    setSelectedAudienceType(type);
-    // Clear selection when switching audience types
-    setSelectedAudienceIds([]);
-    setSelectedAudienceNames([]);
-  };
 
   // Receipt handling functions
   // const addReceiptEntry = () => {
@@ -1286,40 +1293,6 @@ const extractMediaFromMessages = (messages: Message[]) => {
                         </div>
                       </div>
 
-                      {/* set schedule type option */}
-                      <div className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-lg font-semibold text-gray-800 flex items-center">
-                            <span className="mr-2">🗓️</span>
-                            Schedule Type
-                          </h4>
-                          <div className="flex items-center space-x-4">
-                            <label className="flex items-center cursor-pointer">
-                              <input
-                                type="radio"
-                                name="scheduleType"
-                                value="message"
-                                checked={scheduleType === 'message'}
-                                onChange={() => setScheduleType('message')}
-                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                              />
-                              <span className="ml-2 text-sm text-gray-700">Campaign</span>
-                            </label>
-                            <label className="flex items-center cursor-pointer">
-                              <input
-                                type="radio"
-                                name="scheduleType"
-                                value="status"
-                                checked={scheduleType === 'status'}
-                                onChange={() => setScheduleType('status')}
-                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                              />
-                              <span className="ml-2 text-sm text-gray-700">Status Update</span>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-
                       <div className="p-6 overflow-visible">
                         {scheduleType == "message" && (
                           <>
@@ -1327,104 +1300,52 @@ const extractMediaFromMessages = (messages: Message[]) => {
                         <div className="mb-8">
                           <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                             <span className="mr-2">1️⃣</span>
-                            <span className="mr-2">👥</span>
-                            Audience Settings
+                            <span className="mr-2">📢</span>
+                            Channel Selection
                           </h4>
-                              <div className="bg-gray-50 rounded-xl p-4">
-                            <p className="text-sm text-gray-700 mb-3 font-medium">Select who you want to send the message to:</p>
-                            <div className="space-y-2">
-                              <label className="flex items-center cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name="audienceType"
-                                  value="groups"
-                                  checked={selectedAudienceType === 'groups'}
-                                  onChange={() => handleAudienceTypeChange('groups')}
-                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                                />
-                                <span className="ml-2 text-sm text-gray-700">🔘 Groups</span>
-                              </label>
-                              <label className="flex items-center cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name="audienceType"
-                                  value="individuals"
-                                  checked={selectedAudienceType === 'individuals'}
-                                  onChange={() => handleAudienceTypeChange('individuals')}
-                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                                />
-                                <span className="ml-2 text-sm text-gray-700">🔘 Individuals (Max 15 recipients per campaign)</span>
-                              </label>
+                          <div className="bg-gray-50 rounded-xl p-4">
+                            <p className="text-sm text-gray-700 mb-3 font-medium">Select WhatsApp Channels to send messages to:</p>
+                            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                              <p className="text-sm text-blue-700">
+                                💡 <strong>Note:</strong> Only channels where you are OWNER or ADMIN will be shown. Messages will be sent to selected channels.
+                              </p>
                             </div>
                           </div>
                         </div>
 
-                        {/* 2. Recipient Selection */}
+                        {/* 2. Channel Selection */}
                         <div className="mb-8">
                           <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                             <span className="mr-2">2️⃣</span>
                             <span className="mr-2">📌</span>
-                            Recipient Selection
+                            Select Channels
                           </h4>
-                              <div className="bg-gray-50 rounded-xl p-4">
-                            <p className="text-sm text-gray-700 mb-3 font-medium">Select Group(s) or Individual(s):</p>
-                            {selectedAudienceType === 'individuals' && (
-                              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                <p className="text-sm text-blue-700">✅ <strong>Note:</strong> You may select up to 15 individuals per campaign.</p>
-                              </div>
-                            )}
-                            {selectedAudienceType === 'groups' && (
-                              <>
-                                <AudienceSelector
-                                  sessionName={whatsAppSession.sessionName}
-                                  selectedAudienceIds={selectedAudienceIds}
-                                  selectedAudienceType={selectedAudienceType}
-                                  onAudienceSelect={handleAudienceSelect}
-                                  onAudienceTypeChange={handleAudienceTypeChange}
-                                />
-                                {selectedAudienceIds.length > 0 && (
-                                  <div className="mt-4 bg-white rounded-lg p-4 shadow">
-                                    <h3 className="text-lg font-semibold mb-4">Select Group Members</h3>
-                                    {clubMembers ? (
-                                      <MemberSelector
-                                        members={clubMembers}
-                                        campaignId={''}
-                                        onMemberSelectionChange={handleMemberSelectionChange}
-                                        setSheetId={setSheetId}
-                                      />
-                                    ) : (
-                                      <div className="text-gray-500">Loading group members...</div>
-                                    )}
-                                  </div>
-                                )}
-                              </>
-                            )}
-                            {selectedAudienceType !== 'groups' && (
-                              <AudienceSelector
-                                sessionName={whatsAppSession.sessionName}
-                                selectedAudienceIds={selectedAudienceIds}
-                                selectedAudienceType={selectedAudienceType}
-                                onAudienceSelect={handleAudienceSelect}
-                                onAudienceTypeChange={handleAudienceTypeChange}
-                              />
-                            )}
+                          <div className="bg-gray-50 rounded-xl p-4">
+                            <AudienceSelector
+                              sessionName={whatsAppSession.sessionName}
+                              selectedAudienceIds={selectedAudienceIds}
+                              selectedAudienceType={selectedAudienceType}
+                              onAudienceSelect={handleAudienceSelect}
+                              onAudienceTypeChange={handleAudienceTypeChange}
+                            />
                             {editingCampaign && (
-                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <p className="text-sm text-blue-800">
                                   {/* eslint-disable-next-line @typescript-eslint/no-unsafe-member-access */}
-                                  <strong>Editing campaign for group:</strong> {'group' in editingCampaign ? editingCampaign.group?.groupName : 'Status Update'}
+                                  <strong>Editing campaign for channel:</strong> {'group' in editingCampaign ? editingCampaign.group?.groupName : 'Status Update'}
                                 </p>
                                 <p className="text-xs text-blue-600 mt-1">
                                   Note: You can edit campaigns even after they&apos;ve started sending. Only future unsent messages will be updated.
                                 </p>
                                 <p className="text-xs text-blue-600">
-                                  The group cannot be changed when editing a campaign.
+                                  The channel cannot be changed when editing a campaign.
                                 </p>
                               </div>
                             )}
                           </div>
                         </div>
-                        </>)}
+                        </>
+                        )}
 
                         {/* Status Messages */}
                         {submitStatus && (

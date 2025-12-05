@@ -17,6 +17,7 @@ export const auth = betterAuth({
         provider: "mongodb",
     }),
     user: {
+        modelName: "User",
         additionalFields: {
             role: {
                 type: "string",

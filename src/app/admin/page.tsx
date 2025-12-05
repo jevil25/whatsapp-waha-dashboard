@@ -377,6 +377,8 @@ export default function AdminDashboard() {
                 )}
               </div>
 
+              {/* Connected Groups Section - Disabled (Channel-only feature) */}
+              {/* 
               <div className="bg-[#f0f2f5] p-4 rounded-lg">
                 <div 
                   className="flex items-center justify-between cursor-pointer mb-2"
@@ -424,6 +426,7 @@ export default function AdminDashboard() {
                   </>
                 )}
               </div>
+              */}
 
               <div className="bg-[#f0f2f5] p-4 rounded-lg">
                 <div 
@@ -489,7 +492,8 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Member Management Section */}
+          {/* Member Management Section - Disabled (Channel-only feature) */}
+          {/* 
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <button
@@ -776,11 +780,14 @@ export default function AdminDashboard() {
               </div>
             )}
           </div>
+          */}
 
-          {/* User Activity Report Section */}
+          {/* User Activity Report Section - Email feature disabled */}
+          {/* 
           <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
             <UserActivityReport />
           </div>
+          */}
 
           {/* User Management Sections - updated to be more compact */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
