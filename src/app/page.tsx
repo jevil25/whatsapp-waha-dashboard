@@ -11,11 +11,13 @@ import { AudienceSelector } from './_components/whatsapp/AudienceSelector';
 import { CampaignList, type Status, type Campaign as CampaignType, type Message } from './_components/whatsapp/CampaignList';
 import { CompletedCampaignsModal } from './_components/whatsapp/CompletedCampaignsModal';
 import { MediaUpload } from './_components/whatsapp/MediaUpload';
+import ChannelManagement from './_components/whatsapp/ChannelManagement';
 
 export default function Home() {
   const { data: session, isPending } = authClient.useSession();
   const router = useRouter();
 
+  const [activeTab, setActiveTab] = useState<'campaigns' | 'channels'>('campaigns');
   const [scheduleType, setScheduleType] = useState<'message' | 'status'>('message');
 
   const [isCompletedCampaignsOpen, setIsCompletedCampaignsOpen] = useState(false);
@@ -46,7 +48,7 @@ export default function Home() {
   const [campaignTitle, setCampaignTitle] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
-  const [isFreeForm, setIsFreeForm] = useState(false);
+  const [isFreeForm, setIsFreeForm] = useState(true);
   type RecurrenceType = 'DAILY' | 'WEEKLY' | 'SEMI_MONTHLY' | 'MONTHLY' | 'SEMI_ANNUALLY' | 'ANNUALLY';
   const [recurrence, setRecurrence] = useState<RecurrenceType | undefined>(undefined);
   const [selectedClubMemberIds, setSelectedClubMemberIds] = useState<string[]>([]);
@@ -943,7 +945,7 @@ const extractMediaFromMessages = (messages: Message[]) => {
       <main className="min-h-screen bg-[#f0f2f5]">
         {/* WhatsApp-style header */}
         <div className="bg-[#008069] text-white px-4 py-3 flex justify-between items-center">
-          <h1 className="text-xl font-medium">WhatsApp Group Manager</h1>
+          <h1 className="text-xl font-medium">WhatsApp Channel Manager</h1>
           <button
             onClick={handleSignOut}
             className="text-sm bg-[#ffffff1a] px-3 py-1.5 rounded-md hover:bg-[#ffffff33] transition-colors"
@@ -986,11 +988,11 @@ const extractMediaFromMessages = (messages: Message[]) => {
     );
   }
 
-  // Regular user view with TrueSenger style
+  // Regular user view with WhatsApp Channel Manager style
   return (
     <div>
       <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        {/* TrueSenger Header */}
+        {/* WhatsApp Channel Manager Header */}
         <div className="bg-gradient-to-r from-[#d97809] to-[#d97809] text-white px-4 py-4 shadow-lg">
           <div className="max-w-6xl mx-auto flex justify-between items-center">
             <div className="flex items-center space-x-3">
@@ -998,8 +1000,8 @@ const extractMediaFromMessages = (messages: Message[]) => {
                 <span className="text-2xl">🌟</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold">TrueSenger</h1>
-                <p className="text-sm text-orange-100">TRUEFAM WhatsApp Message Scheduler</p>
+                <h1 className="text-2xl font-bold">WhatsApp Channel Manager</h1>
+                <p className="text-sm text-orange-100">WhatsApp Message Scheduler</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -1232,8 +1234,43 @@ const extractMediaFromMessages = (messages: Message[]) => {
                   </div>
                 )}
 
-                {/* Main TrueSenger Form */}
-                {sessionStatus === 'WORKING' && whatsAppSession?.sessionName && (
+                {/* Tab Navigation */}
+                {sessionStatus === 'WORKING' && whatsAppSession && (
+                  <div className="bg-white rounded-2xl shadow-lg border border-gray-200 mb-6 overflow-hidden">
+                    <div className="flex border-b border-gray-200">
+                      <button
+                        onClick={() => setActiveTab('campaigns')}
+                        className={`flex-1 px-6 py-4 font-semibold text-center transition-colors ${
+                          activeTab === 'campaigns'
+                            ? 'bg-[#d97809] text-white'
+                            : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        📅 Campaign Scheduler
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('channels')}
+                        className={`flex-1 px-6 py-4 font-semibold text-center transition-colors ${
+                          activeTab === 'channels'
+                            ? 'bg-[#d97809] text-white'
+                            : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        📢 Channel Management
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Channel Management Tab */}
+                {sessionStatus === 'WORKING' && whatsAppSession?.sessionName && activeTab === 'channels' && (
+                  <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+                    <ChannelManagement sessionName={whatsAppSession.sessionName} />
+                  </div>
+                )}
+
+                {/* Main WhatsApp Channel Manager Form - Only show on campaigns tab */}
+                {sessionStatus === 'WORKING' && whatsAppSession?.sessionName && activeTab === 'campaigns' && (
                   <div className="space-y-6">
                     {/* Active Campaigns Section */}
                     <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
@@ -1278,15 +1315,15 @@ const extractMediaFromMessages = (messages: Message[]) => {
                       )}
                     </div>
 
-                    {/* TrueSenger Message Scheduler */}
+                    {/* Message Scheduler */}
                     <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-visible">
                       <div className="bg-gradient-to-r from-[#d97809] to-[#d97809] text-white p-6">
                         <div className="flex items-center space-x-3">
                           <div className="bg-white/20 p-2 rounded-lg">
-                            <span className="text-2xl">🌟</span>
+                            <span className="text-2xl">📱</span>
                           </div>
                           <div>
-                            <h3 className="text-2xl font-bold">TrueSenger</h3>
+                            <h3 className="text-2xl font-bold">WhatsApp Channel Manager</h3>
                             <p className="text-blue-100 mt-1">Create and schedule your WhatsApp campaigns</p>
                           </div>
                         </div>
@@ -1502,7 +1539,7 @@ const extractMediaFromMessages = (messages: Message[]) => {
                                   <span className="mr-2">📝</span>
                                   Message Type
                                 </h4>
-                                
+                                {/* Message Format Toggle - Commented out as only free form is needed
                                 <div className="space-y-3">
                                   <p className="text-sm text-gray-700 font-medium">Message Format:</p>
                                   <div className="space-y-2">
@@ -1528,9 +1565,10 @@ const extractMediaFromMessages = (messages: Message[]) => {
                                     </label>
                                   </div>
                                 </div>
+                                */}
                               </div>
 
-                              {/* 5. Structured Message Fields */}
+                              {/* 5. Structured Message Fields - Commented out as only free form is needed
                               {!isFreeForm && scheduleType === "message" && (
                                 <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
                                   <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
@@ -1570,6 +1608,7 @@ const extractMediaFromMessages = (messages: Message[]) => {
                                   </div>
                                 </div>
                               )}
+                              */}
 
                               {/* {selectedAudienceType === 'groups' && selectedClubMemberIds.length > 0 && scheduleType === "message" && (
                                 <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200">
@@ -1694,7 +1733,7 @@ const extractMediaFromMessages = (messages: Message[]) => {
                                   
                                   {isFreeForm && (
                                     <p className="mt-2 text-sm text-gray-600">
-                                      💡 <strong>Tip:</strong> Use TRUEFAM&apos;s brand colors to enhance recognition and trust
+                                      💡 <strong>Tip:</strong> Use consistent colors to enhance recognition and trust
                                     </p>
                                   )}
                                   
@@ -1831,10 +1870,10 @@ const extractMediaFromMessages = (messages: Message[]) => {
             </div>
           </div>
           
-          {/* TRUEFAM Footer */}
+          {/* Footer */}
           <footer className="mt-8 text-center py-6 border-t border-gray-200">
             <div className="text-sm text-gray-600">
-              © <span id="year">{new Date().getFullYear()}</span> TRUEFAM Welfare LLC. All rights reserved.
+              © <span id="year">{new Date().getFullYear()}</span> WhatsApp Channel Manager. All rights reserved.
             </div>
           </footer>
         </div>

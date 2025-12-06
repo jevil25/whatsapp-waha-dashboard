@@ -9,8 +9,6 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { DateTime } from "luxon";
 import { deleteFromCloudinary } from "~/lib/cloudinary";
-import { mediaSchema } from "~/types/media.schema";
-import { addMediaToItem, convertImagesToMedia } from "~/utils/mediaHelpers";
 
 export const messageCampaignRouter = createTRPCRouter({
   createCampaign: protectedProcedure

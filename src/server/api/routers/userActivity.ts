@@ -88,7 +88,7 @@ export const userActivityRouter = createTRPCRouter({
 
       const html = `
         <div style="font-family: Arial, sans-serif; max-width:600px; margin:0 auto; background:#f8f9fa; padding:24px; border-radius:8px;">
-          <h2 style="color:#25D366;">📊 TrueSenger - Activity Summary</h2>
+          <h2 style="color:#25D366;">📊 WhatsApp Channel Manager - Activity Summary</h2>
           <p>Hi <strong>${user.name}</strong>,</p>
           <p>Here is your activity summary for <strong>${rangeText}</strong>:</p>
           <ul style="background:#fff; padding:16px; border-radius:8px;">
@@ -114,15 +114,15 @@ export const userActivityRouter = createTRPCRouter({
               `).join('')}
             </tbody>
           </table>
-          <p style="margin-top:24px; color:#666; font-size:14px;">Thank you for using TrueSenger!</p>
+          <p style="margin-top:24px; color:#666; font-size:14px;">Thank you for using WhatsApp Channel Manager!</p>
         </div>
       `;
-      const text = `TrueSenger - Activity Summary\n\nHi ${user.name},\n\nHere is your activity summary for ${rangeText}:\n\nTotal Groups Connected: ${userSummary?.totalGroups ?? 'N/A'}\nTotal Messages Scheduled: ${userSummary?.totalMessages ?? 'N/A'}\n\nMonthly Breakdown:\n${userSummary?.monthlyBreakdown?.map((m:any) => `${monthNames[m.month-1]} ${m.year}: ${m.groupsConnected} groups, ${m.messagesScheduled} messages`).join('\n')}
+      const text = `WhatsApp Channel Manager - Activity Summary\n\nHi ${user.name},\n\nHere is your activity summary for ${rangeText}:\n\nTotal Groups Connected: ${userSummary?.totalGroups ?? 'N/A'}\nTotal Messages Scheduled: ${userSummary?.totalMessages ?? 'N/A'}\n\nMonthly Breakdown:\n${userSummary?.monthlyBreakdown?.map((m:any) => `${monthNames[m.month-1]} ${m.year}: ${m.groupsConnected} groups, ${m.messagesScheduled} messages`).join('\n')}
 \nActive Groups with Scheduled Messages: ${userSummary?.activeGroupsWithScheduledMessages ?? 'N/A'} (unique groups with at least one scheduled message)
 Total Messages (incl. Status Updates): ${userSummary?.totalMessages ?? 'N/A'}
 \nMonthly Breakdown:
 ${userSummary?.monthlyBreakdown?.map((m:any) => `${monthNames[m.month-1]} ${m.year}: ${m.groupsConnected} groups, ${m.messagesScheduled} messages`).join('\n')}
-\nThank you for using TrueSenger!`;
+\nThank you for using WhatsApp Channel Manager!`;
 
       // Send email using Mailgun
       await sendUserSummaryEmail(user.email, html, text);

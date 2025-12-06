@@ -168,7 +168,7 @@ export function ImageUpload({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-              <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+              <div className="absolute bottom-2 left-2 bg-black opacity-50 text-white text-xs px-2 py-1 rounded">
                 {isRecurring && maxImages > 1 ? `Message ${index + 1}` : 'All messages'}
               </div>
             </div>

@@ -304,11 +304,11 @@ export default function AdminDashboard() {
             </button>
             <div className="flex items-center space-x-3">
               <div className="bg-white/10 p-2 rounded-lg">
-                <span className="text-xl">🌟</span>
+                <span className="text-xl">📱</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold">TrueSenger Admin</h1>
-                <p className="text-sm text-orange-100">TRUEFAM Administration Dashboard</p>
+                <h1 className="text-xl font-bold">WhatsApp Channel Manager</h1>
+                <p className="text-sm text-orange-100">Administration Dashboard</p>
               </div>
             </div>
           </div>

@@ -172,6 +172,48 @@ async function checkAndSendScheduledMessages() {
                     throw new Error(`Failed to send WhatsApp message: ${response.statusText}`);
                 }
 
+                const responseData = await response.json() as { id?: string };
+
+                // Store sent message in ReceivedMessage collection for preview
+                try {
+                    await prisma.receivedMessage.create({
+                        data: {
+                            messageId: responseData.id ?? `sent_${message.id}_${Date.now()}`,
+                            sessionName: session?.sessionName ?? '',
+                            event: 'message.any',
+                            timestamp: now,
+                            from: session?.phoneNumber ?? '',
+                            fromMe: true,
+                            to: message.MessageCampaign?.group.groupId ?? '',
+                            body: message.content,
+                            hasMedia: messageMedia.hasImage || messageMedia.hasVideo,
+                            mediaUrl: messageMedia.imageUrl || messageMedia.videoUrl || null,
+                            ack: 1,
+                            ackName: 'SERVER',
+                            source: 'api',
+                            chatId: message.MessageCampaign?.group.groupId ?? null,
+                            payload: {
+                                event: 'message.any',
+                                session: session?.sessionName,
+                                payload: {
+                                    id: responseData.id ?? `sent_${message.id}_${Date.now()}`,
+                                    from: session?.phoneNumber,
+                                    to: message.MessageCampaign?.group.groupId,
+                                    body: message.content,
+                                    fromMe: true,
+                                    hasMedia: messageMedia.hasImage || messageMedia.hasVideo,
+                                    timestamp: Math.floor(now.getTime() / 1000),
+                                    source: 'api',
+                                }
+                            },
+                        },
+                    });
+                    console.log('Sent message stored in receivedMessage collection');
+                } catch (storeError) {
+                    console.error('Failed to store sent message:', storeError);
+                    // Don't fail the entire operation if storing fails
+                }
+
                 // Update message as sent
                 await prisma.message.update({
                     where: {

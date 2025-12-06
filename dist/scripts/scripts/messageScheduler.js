@@ -1,5 +1,5 @@
 import { PrismaClient, CampaignStatus } from '@prisma/client';
-import { deleteFromCloudinary } from '../lib/cloudinary';
+import { deleteFromCloudinary } from '../lib/cloudinary.js';
 const prisma = new PrismaClient();
 async function checkAndSendScheduledMessages() {
     try {

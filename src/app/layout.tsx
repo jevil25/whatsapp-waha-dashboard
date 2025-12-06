@@ -7,8 +7,8 @@ import { TRPCReactProvider } from "~/trpc/react";
 import Footer from "./_components/Footer";
 
 export const metadata: Metadata = {
-  title: "WhatsApp Group Manager",
-  description: "Manage your WhatsApp groups and campaigns efficiently.",
+  title: "WhatsApp Channel Manager",
+  description: "Manage your WhatsApp channels and campaigns efficiently.",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 

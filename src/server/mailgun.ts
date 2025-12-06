@@ -17,7 +17,7 @@ export async function sendResetPasswordEmail(email: string, url: string) {
   const emailData = {
     from: env.FROM_EMAIL,
     to: email,
-    subject: "Reset Your Password - WhatsApp Group Manager",
+    subject: "Reset Your Password - WhatsApp Channel Manager",
     html: `
       <!DOCTYPE html>
       <html>
@@ -106,7 +106,7 @@ export async function sendResetPasswordEmail(email: string, url: string) {
             
             <div class="content">
               <p>Hi there,</p>
-              <p>You recently requested to reset your password for your WhatsApp Group Manager account. Click the button below to reset it:</p>
+              <p>You recently requested to reset your password for your WhatsApp Channel Manager account. Click the button below to reset it:</p>
               
               <div style="text-align: center;">
                 <a href="${resetUrl}" class="reset-button">Reset Your Password</a>
@@ -163,7 +163,7 @@ export async function sendPasswordChangedNotification(email: string) {
   const emailData = {
     from: env.FROM_EMAIL,
     to: email,
-    subject: "Password Changed Successfully - WhatsApp Group Manager",
+    subject: "Password Changed Successfully - WhatsApp Channel Manager",
     html: `
       <!DOCTYPE html>
       <html>
@@ -231,14 +231,14 @@ export async function sendPasswordChangedNotification(email: string) {
         <body>
           <div class="container">
             <div class="header">
-              <div class="logo">📱 WhatsApp Group Manager</div>
+              <div class="logo">📱 WhatsApp Channel Manager</div>
               <div class="success-icon">✅</div>
               <h1 class="title">Password Changed Successfully</h1>
             </div>
             
             <div class="content">
               <p>Hi there,</p>
-              <p>This email confirms that your password for your WhatsApp Group Manager account has been successfully changed.</p>
+              <p>This email confirms that your password for your WhatsApp Channel Manager account has been successfully changed.</p>
               
               <div class="info-box">
                 <strong>✓ Password Updated:</strong> Your account is now secured with your new password.
@@ -251,25 +251,25 @@ export async function sendPasswordChangedNotification(email: string) {
             
             <div class="footer">
               <p>For your security, we recommend using a strong, unique password.</p>
-              <p>This email was sent from WhatsApp Group Manager. Please do not reply to this email.</p>
+              <p>This email was sent from WhatsApp Channel Manager. Please do not reply to this email.</p>
             </div>
           </div>
         </body>
       </html>
     `,
     text: `
-      Password Changed Successfully - WhatsApp Group Manager
+      Password Changed Successfully - WhatsApp Channel Manager
       
       Hi there,
       
-      This email confirms that your password for your WhatsApp Group Manager account has been successfully changed.
+      This email confirms that your password for your WhatsApp Channel Manager account has been successfully changed.
       
       If you made this change, no further action is required.
       
       If you did not request this password change, please contact our support team immediately.
       
       ---
-      WhatsApp Group Manager
+      WhatsApp Channel Manager
     `,
   };
 
@@ -367,14 +367,14 @@ export async function sendUserRegistrationNotificationToAdmin(userName: string, 
         <body>
           <div class="container">
             <div class="header">
-              <div class="logo">📱 WhatsApp Group Manager</div>
+              <div class="logo">📱 WhatsApp Channel Manager</div>
               <div class="notification-icon">🔔</div>
               <h1 class="title">New User Registration</h1>
             </div>
             
             <div class="content">
               <p>Hello Admin,</p>
-              <p>A new user has registered and is waiting for approval to access the WhatsApp Group Manager.</p>
+              <p>A new user has registered and is waiting for approval to access the WhatsApp Channel Manager.</p>
               
               <div class="user-details">
                 <div class="user-detail"><strong>Name:</strong> ${userName}</div>
@@ -392,7 +392,7 @@ export async function sendUserRegistrationNotificationToAdmin(userName: string, 
             </div>
             
             <div class="footer">
-              <p>This notification was sent automatically from WhatsApp Group Manager.</p>
+              <p>This notification was sent automatically from WhatsApp Channel Manager.</p>
               <p>Please do not reply to this email.</p>
             </div>
           </div>
@@ -400,7 +400,7 @@ export async function sendUserRegistrationNotificationToAdmin(userName: string, 
       </html>
     `,
     text: `
-      New User Registration - WhatsApp Group Manager
+      New User Registration - WhatsApp Channel Manager
       
       Hello Admin,
       
@@ -413,7 +413,7 @@ export async function sendUserRegistrationNotificationToAdmin(userName: string, 
       Please review this registration in the admin dashboard.
       
       ---
-      WhatsApp Group Manager
+      WhatsApp Channel Manager
     `,
   };
 
@@ -525,7 +525,7 @@ export async function sendUserSummaryEmail(email: string, html: string, text: st
   const emailData = {
     from: env.FROM_EMAIL,
     to: email,
-    subject: "Your Activity Summary - TrueSenger",
+    subject: "Your Activity Summary - WhatsApp Channel Manager",
     html,
     text,
   };

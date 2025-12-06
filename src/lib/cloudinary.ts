@@ -7,13 +7,14 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET!,
 });
 
+export { cloudinary };
 export default cloudinary;
 
-export const uploadToCloudinary = async (
+export function uploadToCloudinary(
   buffer: Buffer,
   folder = 'whatsapp-campaigns',
   fileType: 'image' | 'video' = 'image'
-): Promise<{ url: string; publicId: string }> => {
+): Promise<{ url: string; publicId: string }> {
   return new Promise((resolve, reject) => {
     const options = {
       folder,
@@ -50,13 +51,13 @@ export const uploadToCloudinary = async (
       }
     ).end(buffer);
   });
-};
+}
 
-export const deleteFromCloudinary = async (publicId: string): Promise<void> => {
+export async function deleteFromCloudinary(publicId: string): Promise<void> {
   try {
     await cloudinary.uploader.destroy(publicId);
   } catch (error) {
     console.error('Error deleting image from Cloudinary:', error);
     // Don't throw error as it's not critical for the app to continue
   }
-};
+}

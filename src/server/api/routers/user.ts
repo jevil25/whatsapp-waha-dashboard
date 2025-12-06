@@ -636,4 +636,627 @@ export const userRouter = createTRPCRouter({
         throw error;
       }
     }),
+
+  getChannelDetails: userProcedure
+    .input(z.object({
+      sessionName: z.string(),
+      channelId: z.string(),
+    }))
+    .query(async ({ input }) => {
+      if (!WAHA_API_URL) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'WhatsApp API URL is not configured',
+        });
+      }
+
+      try {
+        // Escape @ to %40 in channelId
+        const escapedChannelId = input.channelId.replace(/@/g, '%40');
+        const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/channels/${escapedChannelId}`, {
+          method: 'GET',
+          headers: WAHA_HEADERS,
+        });
+
+        if (!response.ok) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to fetch channel details: ${response.status} ${response.statusText}`,
+          });
+        }
+
+        const channel = await response.json() as {
+          id: string;
+          name: string;
+          description?: string;
+          invite?: string;
+          picture?: string;
+          verified: boolean;
+          role: 'OWNER' | 'ADMIN' | 'SUBSCRIBER';
+          followers?: number;
+        };
+
+        return channel;
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch channel details',
+          cause: error,
+        });
+      }
+    }),
+
+  createChannel: userProcedure
+    .input(z.object({
+      sessionName: z.string(),
+      name: z.string().min(1).max(255),
+      description: z.string().optional(),
+      picture: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      if (!WAHA_API_URL) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'WhatsApp API URL is not configured',
+        });
+      }
+
+      try {
+        const url = `${WAHA_API_URL}/api/${input.sessionName}/channels`;
+        console.log('Creating channel:', url, input);
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: WAHA_HEADERS,
+          body: JSON.stringify({
+            name: input.name,
+            description: input.description,
+            picture: input.picture,
+          }),
+        });
+
+        console.log('Create channel response status:', response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Create channel error:', errorText);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to create channel: ${response.status} ${response.statusText} - ${errorText}`,
+          });
+        }
+
+        const channel = await response.json() as {
+          id: string;
+          name: string;
+          description?: string;
+          picture?: string;
+        };
+
+        console.log('Channel created successfully:', channel.id);
+        return channel;
+      } catch (error) {
+        console.error('Create channel exception:', error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to create channel: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          cause: error,
+        });
+      }
+    }),
+
+  // NOTE: Delete channel is currently not implemented in WhatsApp/WAHA server
+  // Keeping the endpoint commented out for future use when the feature becomes available
+  // deleteChannel: userProcedure
+  //   .input(z.object({
+  //     sessionName: z.string(),
+  //     channelId: z.string(),
+  //   }))
+  //   .mutation(async ({ input }) => {
+  //     if (!WAHA_API_URL) {
+  //       throw new TRPCError({
+  //         code: 'INTERNAL_SERVER_ERROR',
+  //         message: 'WhatsApp API URL is not configured',
+  //       });
+  //     }
+
+  //     try {
+  //       // Escape @ to %40 in channelId
+  //       const escapedChannelId = input.channelId.replace(/@/g, '%40');
+  //       const url = `${WAHA_API_URL}/api/${input.sessionName}/channels/${escapedChannelId}`;
+  //       console.log('Deleting channel:', url);
+  //       
+  //       const response = await fetch(url, {
+  //         method: 'DELETE',
+  //         headers: WAHA_HEADERS,
+  //       });
+
+  //       console.log('Delete channel response status:', response.status);
+
+  //       if (!response.ok) {
+  //         const errorText = await response.text();
+  //         console.error('Delete channel error:', errorText);
+  //         throw new TRPCError({
+  //           code: 'INTERNAL_SERVER_ERROR',
+  //           message: `Failed to delete channel: ${response.status} ${response.statusText} - ${errorText}`,
+  //         });
+  //       }
+
+  //       const data = await response.json() as { success?: boolean };
+  //       return { success: true, data };
+  //     } catch (error) {
+  //       console.error('Delete channel exception:', error);
+  //       if (error instanceof TRPCError) {
+  //         throw error;
+  //       }
+  //       throw new TRPCError({
+  //         code: 'INTERNAL_SERVER_ERROR',
+  //         message: `Failed to delete channel: ${error instanceof Error ? error.message : 'Unknown error'}`,
+  //         cause: error,
+  //       });
+  //     }
+  //   }),
+
+  manageChannelAdmins: userProcedure
+    .input(z.object({
+      sessionName: z.string(),
+      channelId: z.string(),
+      action: z.enum(['promote', 'demote']),
+      phoneNumbers: z.array(z.string()),
+    }))
+    .mutation(async ({ input }) => {
+      if (!WAHA_API_URL) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'WhatsApp API URL is not configured',
+        });
+      }
+
+      try {
+        // Escape @ to %40 in channelId
+        const escapedChannelId = input.channelId.replace(/@/g, '%40');
+        const url = `${WAHA_API_URL}/api/${input.sessionName}/channels/${escapedChannelId}/admins`;
+        console.log('Managing channel admins:', url, input);
+        
+        const response = await fetch(url, {
+          method: 'PUT',
+          headers: WAHA_HEADERS,
+          body: JSON.stringify({
+            action: input.action,
+            participants: input.phoneNumbers,
+          }),
+        });
+
+        console.log('Manage admins response status:', response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Manage admins error:', errorText);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to manage channel admins: ${response.status} ${response.statusText} - ${errorText}`,
+          });
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error('Manage admins exception:', error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to manage channel admins: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          cause: error,
+        });
+      }
+    }),
+
+  generateChannelInvite: userProcedure
+    .input(z.object({
+      sessionName: z.string(),
+      channelId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      if (!WAHA_API_URL) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'WhatsApp API URL is not configured',
+        });
+      }
+
+      try {
+        // Escape @ to %40 in channelId
+        const escapedChannelId = input.channelId.replace(/@/g, '%40');
+        const url = `${WAHA_API_URL}/api/${input.sessionName}/channels/${escapedChannelId}`;
+        console.log('Fetching channel details for invite:', url);
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: WAHA_HEADERS,
+        });
+
+        console.log('Channel details response status:', response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Channel details error:', errorText);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to get channel invite: ${response.status} ${response.statusText} - ${errorText}`,
+          });
+        }
+
+        const channel = await response.json() as { invite?: string };
+        
+        if (!channel.invite) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Channel invite link not available',
+          });
+        }
+        
+        return { inviteLink: channel.invite };
+      } catch (error) {
+        console.error('Generate invite exception:', error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to get channel invite: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          cause: error,
+        });
+      }
+    }),
+
+  revokeChannelInvite: userProcedure
+    .input(z.object({
+      sessionName: z.string(),
+      channelId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      if (!WAHA_API_URL) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'WhatsApp API URL is not configured',
+        });
+      }
+
+      try {
+        // Escape @ to %40 in channelId
+        const escapedChannelId = input.channelId.replace(/@/g, '%40');
+        const url = `${WAHA_API_URL}/api/${input.sessionName}/channels/${escapedChannelId}/invite`;
+        console.log('Revoking channel invite:', url);
+        
+        const response = await fetch(url, {
+          method: 'DELETE',
+          headers: WAHA_HEADERS,
+        });
+
+        console.log('Revoke invite response status:', response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Revoke invite error:', errorText);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to revoke invite link: ${response.status} ${response.statusText} - ${errorText}`,
+          });
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error('Revoke invite exception:', error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to revoke invite link: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          cause: error,
+        });
+      }
+    }),
+
+  followChannel: userProcedure
+    .input(z.object({
+      sessionName: z.string(),
+      channelId: z.string(),
+      action: z.enum(['follow', 'unfollow']),
+    }))
+    .mutation(async ({ input }) => {
+      if (!WAHA_API_URL) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'WhatsApp API URL is not configured',
+        });
+      }
+
+      try {
+        // Escape @ to %40 in channelId
+        const escapedChannelId = input.channelId.replace(/@/g, '%40');
+        const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/channels/${escapedChannelId}/follow`, {
+          method: 'PUT',
+          headers: WAHA_HEADERS,
+          body: JSON.stringify({
+            action: input.action,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to ${input.action} channel: ${response.status} ${response.statusText}`,
+          });
+        }
+
+        return { success: true };
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to ${input.action} channel`,
+          cause: error,
+        });
+      }
+    }),
+
+  muteChannel: userProcedure
+    .input(z.object({
+      sessionName: z.string(),
+      channelId: z.string(),
+      mute: z.boolean(),
+    }))
+    .mutation(async ({ input }) => {
+      if (!WAHA_API_URL) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'WhatsApp API URL is not configured',
+        });
+      }
+
+      try {
+        // Escape @ to %40 in channelId
+        const escapedChannelId = input.channelId.replace(/@/g, '%40');
+        const response = await fetch(`${WAHA_API_URL}/api/${input.sessionName}/channels/${escapedChannelId}/mute`, {
+          method: 'PUT',
+          headers: WAHA_HEADERS,
+          body: JSON.stringify({
+            mute: input.mute,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to ${input.mute ? 'mute' : 'unmute'} channel: ${response.status} ${response.statusText}`,
+          });
+        }
+
+        return { success: true };
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to ${input.mute ? 'mute' : 'unmute'} channel`,
+          cause: error,
+        });
+      }
+    }),
+
+  sendMessage: userProcedure
+    .input(z.object({
+      sessionName: z.string(),
+      chatId: z.string(),
+      text: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      if (!WAHA_API_URL) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'WhatsApp API URL is not configured',
+        });
+      }
+
+      try {
+        console.log('Sending WhatsApp message:', {
+          chatId: input.chatId,
+          session: input.sessionName,
+          textLength: input.text.length
+        });
+        
+        const response = await fetch(`${WAHA_API_URL}/api/sendText`, {
+          method: 'POST',
+          headers: WAHA_HEADERS,
+          body: JSON.stringify({
+            chatId: input.chatId,
+            text: input.text,
+            linkPreview: true,
+            linkPreviewHighQuality: false,
+            session: input.sessionName,
+          }),
+        });
+
+        console.log('Send message response status:', response.status);
+
+        if (response.status !== 201) {
+          const errorText = await response.text();
+          console.error('Send message error:', errorText);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to send message: ${response.status} ${response.statusText} - ${errorText}`,
+          });
+        }
+
+        const messageData = await response.json() as { id?: string };
+        
+        // Store sent message in database
+        try {
+          await db.receivedMessage.create({
+            data: {
+              messageId: messageData.id ?? `frontend_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+              sessionName: input.sessionName,
+              event: 'message',
+              timestamp: new Date(),
+              from: input.chatId,
+              fromMe: true,
+              to: input.chatId,
+              body: input.text,
+              hasMedia: false,
+              source: 'frontend',
+              chatId: input.chatId,
+              payload: { text: input.text, chatId: input.chatId },
+            },
+          });
+        } catch (dbError) {
+          console.error('Failed to store message in database:', dbError);
+          // Don't throw error, message was sent successfully
+        }
+
+        console.log('Message sent successfully');
+        return { success: true };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          cause: error,
+        });
+      }
+    }),
+
+  sendImage: userProcedure
+    .input(z.object({
+      sessionName: z.string(),
+      chatId: z.string(),
+      imageUrl: z.string(),
+      caption: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      if (!WAHA_API_URL) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'WhatsApp API URL is not configured',
+        });
+      }
+
+      try {
+        console.log('Sending WhatsApp image:', {
+          chatId: input.chatId,
+          session: input.sessionName,
+          imageUrl: input.imageUrl,
+        });
+        
+        const response = await fetch(`${WAHA_API_URL}/api/sendImage`, {
+          method: 'POST',
+          headers: WAHA_HEADERS,
+          body: JSON.stringify({
+            chatId: input.chatId,
+            file: {
+              url: input.imageUrl,
+              mimetype: "image/jpeg",
+              filename: "image.jpg"
+            },
+            caption: input.caption ?? '',
+            session: input.sessionName,
+          }),
+        });
+
+        console.log('Send image response status:', response.status);
+
+        if (response.status !== 201) {
+          const errorText = await response.text();
+          console.error('Send image error:', errorText);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to send image: ${response.status} ${response.statusText} - ${errorText}`,
+          });
+        }
+
+        const messageData = await response.json() as { id?: string };
+        
+        // Store sent image in database
+        try {
+          await db.receivedMessage.create({
+            data: {
+              messageId: messageData.id ?? `frontend_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+              sessionName: input.sessionName,
+              event: 'message',
+              timestamp: new Date(),
+              from: input.chatId,
+              fromMe: true,
+              to: input.chatId,
+              body: input.caption ?? null,
+              hasMedia: true,
+              mediaUrl: input.imageUrl,
+              source: 'frontend',
+              chatId: input.chatId,
+              payload: { imageUrl: input.imageUrl, caption: input.caption, chatId: input.chatId },
+            },
+          });
+        } catch (dbError) {
+          console.error('Failed to store image message in database:', dbError);
+          // Don't throw error, message was sent successfully
+        }
+
+        console.log('Image sent successfully');
+        return { success: true };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to send image: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          cause: error,
+        });
+      }
+    }),
+
+  getChannelMessages: userProcedure
+    .input(z.object({
+      sessionName: z.string(),
+      channelId: z.string(),
+      limit: z.number().optional().default(50),
+    }))
+    .query(async ({ input }) => {
+      try {
+        const messages = await db.receivedMessage.findMany({
+          where: {
+            sessionName: input.sessionName,
+            chatId: input.channelId,
+          },
+          orderBy: {
+            timestamp: 'desc',
+          },
+          take: input.limit * 2, // Fetch extra in case of duplicates
+        });
+
+        // Deduplicate by messageId (in case same message was received from multiple events)
+        const uniqueMessages = new Map();
+        for (const msg of messages) {
+          if (!uniqueMessages.has(msg.messageId)) {
+            uniqueMessages.set(msg.messageId, msg);
+          }
+        }
+
+        // Convert back to array, sort by timestamp (ascending - oldest first), and limit
+        const deduplicated = Array.from(uniqueMessages.values())
+          .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+          .slice(0, input.limit);
+
+        return deduplicated;
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch channel messages',
+          cause: error,
+        });
+      }
+    }),
 });
+

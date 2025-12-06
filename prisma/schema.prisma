@@ -289,3 +289,29 @@ model Verification {
 
   @@map("verification")
 }
+
+model ReceivedMessage {
+  id          String    @id @default(cuid()) @map("_id")
+  messageId   String    @unique // WhatsApp message ID
+  sessionName String    // Session that received the message
+  event       String    // Event type (message, message.any, etc)
+  timestamp   DateTime  // When message was received
+  from        String    // Sender ID
+  fromMe      Boolean   // If message is from us
+  to          String    // Recipient ID
+  body        String?   // Message text content
+  hasMedia    Boolean   @default(false)
+  mediaUrl    String?   // URL to download media
+  ack         Int?      // Message acknowledgment status
+  ackName     String?   // Human readable ack status
+  source      String?   // app or api
+  chatId      String?   // Chat/Group ID
+  payload     Json      // Full webhook payload
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([sessionName])
+  @@index([chatId])
+  @@index([timestamp])
+  @@map("received_message")
+}
