@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
       // Check if message already exists
       const existing = await db.receivedMessage.findUnique({
-        where: { messageId: payload.id },
+        where: { messageId_sessionName_event: { messageId: payload.id, sessionName: body.session, event: body.event } },
       });
 
       if (existing) {

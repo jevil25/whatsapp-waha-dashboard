@@ -292,7 +292,7 @@ model Verification {
 
 model ReceivedMessage {
   id          String    @id @default(cuid()) @map("_id")
-  messageId   String    @unique // WhatsApp message ID
+  messageId   String    // WhatsApp message ID
   sessionName String    // Session that received the message
   event       String    // Event type (message, message.any, etc)
   timestamp   DateTime  // When message was received
@@ -313,5 +313,6 @@ model ReceivedMessage {
   @@index([sessionName])
   @@index([chatId])
   @@index([timestamp])
+  @@unique([messageId, sessionName, event])
   @@map("received_message")
 }
